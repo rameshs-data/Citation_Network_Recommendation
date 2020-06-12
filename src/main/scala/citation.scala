@@ -14,5 +14,6 @@ object citation {
     println("one")
     textRDD.take(10).foreach(println)
     println("two")
+    sc.stop()
   }
 }
