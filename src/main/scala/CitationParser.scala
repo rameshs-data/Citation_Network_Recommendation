@@ -1,157 +1,95 @@
+import java.util.UUID
+
 import org.apache.spark.{SparkConf, SparkContext}
 import net.liftweb.json.{DefaultFormats, _}
+import org.apache.spark.graphx.{Edge, Graph}
+import org.apache.spark.rdd.RDD
 
-import scala.collection.mutable.ArrayBuffer
+object CitationParser{
 
-case class Journal(
-                    entities: List[String],
-                    journalVolume: String,
-                    journalPages: String,
-                    pmid: String,
-                    year: Int,
-                    outCitations: List[String],
-                    s2Url: String,
-                    s2PdfUrl: String,
-                    id: String,
-                    authors: Authors,
-                    journalName: String,
-                    paperAbstract: String,
-                    inCitations: List[String],
-                    pdfUrls: List[String],
-                    title: String,
-                    doi: String,
-                    sources: List[String],
-                    doiUrl: String,
-                    venue: String)
+//  define the journal schema
+  case class Journal(
+                      entities: List[String],
+                      journalVolume: String,
+                      journalPages: String,
+                      pmid: String,
+                      year: Option[Int],
+                      outCitations: List[String],
+                      s2Url: String,
+                      s2PdfUrl: String,
+                      id: String,
+                      authors: List[Authors],
+                      journalName: String,
+                      paperAbstract: String,
+                      inCitations: List[String],
+                      pdfUrls: List[String],
+                      title: String,
+                      doi: String,
+                      sources: List[String],
+                      doiUrl: String,
+                      venue: String)
 
-case class Authors(
-                    name: String,
-                    ids: List[String]
-                  )
+//  define the author schema
+  case class Authors(
+                      name: String,
+                      ids: List[String]
+                    )
 
-object CitationParser extends App {
-
-  implicit val formats = DefaultFormats
-
-  def getJournals(journalJsonString: String): Array[Journal]={
-    var entityValues=List[String]()
-    var journalVolumeValues=String
-    var journalPageValues=String
-    var pmidValues=String
-    var yearValues=Int
-    var outCitationValues=List[String]()
-    var s2UrlValues=String
-    var s2PdfUrlValues=String
-    var idValues=String
-    var authorValues=ArrayBuffer[Authors]()
-    var journalNameValues=String
-    var paperAbstractValues=String
-    var inCitationValues=List[String]()
-    var pdfUrlValues=List[String]()
-    var titleValues=String
-    var doiValues=String
-    var sourcesValues=List[String]()
-    var doiUrlValues=String
-    var venueValues=String
-
-    val json = parse(journalJsonString)
-
-    val entities = (json \\ "entities").children
-    for(p <- entities){
-      entityValues+=p.extract[String]
-    }
-    val journalVolume = (json \\ "journalVolume").children
-    for(p <- journalVolume){
-      journalVolumeValues+=p.extract[String]
-    }
-    val journalPages = (json \\ "journalPages").children
-    for(p <- journalPages){
-      journalPageValues +=p.extract[String]
-    }
-    val pmid = (json \\ "pmid").children
-    for(p <- pmid){
-      pmidValues +=p.extract[String]
-    }
-    val year = (json \\ "").children
-    for(p <- year){
-      val yearValues =p.extract[Int]
-    }
-    val outCitations = (json \\ "outCitations").children
-    for(p <- outCitations){
-      outCitationValues +=p.extract[String]
-    }
-    val s2Url = (json \\ "s2Url").children
-    for(p <- s2Url){
-      s2UrlValues +=p.extract[String]
-    }
-    val s2PdfUrl = (json \\ "s2PdfUrl").children
-    for(p <- s2PdfUrl){
-      s2PdfUrlValues +=p.extract[String]
-    }
-    val id = (json \\ "id").children
-    for(p <- id){
-      idValues +=p.extract[String]
-    }
-    val authors = (json \\ "authors").children
-    for(p <- authors){
-      authorValues +=p.extract[Authors]
-    }
-    val journalName = (json \\ "journalName").children
-    for(p <- journalName){
-      journalNameValues +=p.extract[String]
-    }
-    val paperAbstract = (json \\ "paperAbstract").children
-    for(p <- paperAbstract){
-      paperAbstractValues +=p.extract[String]
-    }
-    val inCitations = (json \\ "inCitations").children
-    for(p <- inCitations){
-      inCitationValues +=p.extract[String]
-    }
-    val pdfUrls = (json \\ "pdfUrls").children
-    for(p <- pdfUrls){
-      pdfUrlValues +=p.extract[String]
-    }
-    val title = (json \\ "title").children
-    for(p <- title){
-      titleValues +=p.extract[String]
-    }
-    val doi = (json \\ "doi").children
-    for(p <- doi){
-      doiValues +=p.extract[String]
-    }
-    val sources = (json \\ "sources").children
-    for(p <- sources){
-      sourcesValues +=p.extract[String]
-    }
-    val doiUrl = (json \\ "doiUrl").children
-    for(p <- doiUrl){
-      doiUrlValues +=p.extract[String]
-    }
-    val venue = (json \\ "venue").children
-    for(p <- venue){
-      venueValues +=p.extract[String]
-    }
-Journal(entityValues,journalVolumeValues,journalPageValues,pmidValues,yearValues,outCitationValues,s2UrlValues,s2PdfUrlValues,idValues,authorValues,journalNameValues,paperAbstractValues,inCitationValues,pdfUrlValues,titleValues,doiValues,sourcesValues,doiUrlValues,venueValues)
-  }
-
-  def parseLine(jsonString: String) = {
-    val json = parse(jsonString)
-    val journals = (json \\ "entities").children
-    println("\njournals:"+journals)
-
-    for(p <- journals){
-      println("p.values = " + p.values)
-    }
+  def hex2dec(hex: String): BigInt = {
+    hex.toLowerCase().toList.map(
+      "0123456789abcdef".indexOf(_)).map(
+      BigInt(_)).reduceLeft( _ * 16 + _)
   }
 
   def main(args: Array[String]): Unit = {
 
+//    creating a spark context driver and setting log level to error
     val sc = new SparkContext("local[*]","Citation")
     sc.setLogLevel("ERROR")
 
+//    reading the file using the spark context
     val lines = sc.textFile("file:///All Items Offline/Sem2/CS648 Project/sample_data/s2-corpus-00/s2-corpus-00")
 
-    val rdd = lines.map(x => parse(x).extract[Journal])
+//     println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
+//    extracting the data using lift json parser
+    val journalRdd = lines.map(x => {implicit val formats = DefaultFormats;parse(x).extract[Journal]}).cache()
+
+//    println(s"Number of entries in journalRDD is ${journalRdd.count()}") //1000000
+
+//    printing the values of the journals
+//    journalRdd.foreach(x => println(x.outCitations))
+
+//     create journal RDD vertices with ID and Name
+    val journalVertices = journalRdd.map(journal => (journal.id, journal.journalName)).distinct
+
+//    println(s"Number of entries in journalVerticesRDD is ${journalVertices.count()}") //1000000
+
+//    printing the values of the vertex
+//    journalVertices.foreach(x => println(x._1))
+
+//     Defining a default vertex called nocitation
+    val nocitation = "nocitation"
+
+//     Map journal ID to the journal name to be printed
+//    val journalVertexMap = journalVertex.map(journal =>{ case ((journal._1), (journal._2)) => (journal._1 -> journal._2) })
+
+//    Creating edges with outCitations and inCitations
+    val citations = journalRdd.map(journal => (journal.id,journal.outCitations)).distinct
+//    println(s"Number of entries in citationsRDD is ${citations.count()}") //1000000
+
+//    printing citation values
+//    citations.foreach(x => println(x._1,x._2))
+
+//    creating citation edges with outCitations and inCitations
+    val citationEdges = citations.map{
+      case((id,outCitations)) => for(outCitation <- outCitations){
+//        Edge(id.hex,outCitation.hex)
+      }
+    }
+//    println(s"Number of entries in citationEdgesRDD is ${citationEdges.count()}")
+
+    citationEdges.foreach(println)
+
+//    val graph = Graph(citationEdges,journalVertices,nocitation)
   }
 }
