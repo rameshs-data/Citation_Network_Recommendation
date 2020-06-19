@@ -9,7 +9,7 @@ object CitationParser{
 //  define the journal schema
   case class Journal(
                       entities: List[String],
-                      journalVolume: String,
+                      journalVolume: Option[String],
                       journalPages: String,
                       pmid: String,
                       year: Option[Int],
@@ -45,8 +45,11 @@ object CitationParser{
     val conf = new SparkConf()
 
 //    setting configuration
-    conf.set("spark.executor.memory","90g")
+    conf.set("spark.executor.memory","50g")
       .set("spark.driver.memory","90g")
+      .set("spark.memory.offHeap.enabled","true")
+      .set("spark.memory.offHeap.size","40g")
+      .set("spark.default.parallelism", "8300")
       .setMaster("local[*]")
       .setAppName("Citation")
 //    creating a spark context driver and setting log level to error
@@ -57,14 +60,15 @@ object CitationParser{
 //    sc.setLogLevel("ERROR")
 
 //    reading the file using the spark context
-    val lines_orig = sc.textFile("file:///All Items Offline/Sem2/CS648 Project/sample_data/s2-corpus-00/s2-corpus-00")
-    val lines = lines_orig.sample(false,0.01,2)
+val lines = sc.textFile("file:///ichec/work/mucom001c/SmallPubNet/s2-corpus-000*")
+//    val lines_orig = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000")
+//    val lines = lines_orig.sample(false,0.50,2)
 
      println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
 //    extracting the data using lift json parser
     val journalRdd: RDD[Journal] = lines.map(x => {implicit val formats: DefaultFormats.type = DefaultFormats;parse(x).extract[Journal]}).cache()
 
-//    println(s"Number of entries in journalRDD is ${journalRdd.count()}") //1000000
+    println(s"Number of entries in journalRDD is ${journalRdd.count()}") //1000000
 
 //    printing the values of the journals
 //    journalRdd.foreach(x => println(x.outCitations))
@@ -72,7 +76,7 @@ object CitationParser{
 //     create journal RDD vertices with ID and Name
     val journalVertices: RDD[(Long, String)] = journalRdd.map(journal => (hex2dec(journal.id).toLong, journal.journalName)).distinct
 
-//    println(s"Number of entries in journalVerticesRDD is ${journalVertices.count()}") //1000000
+    println(s"Number of entries in journalVerticesRDD is ${journalVertices.count()}") //1000000
 
 //    printing the values of the vertex
 //    journalVertices.foreach(x => println(x._1))
@@ -88,7 +92,7 @@ object CitationParser{
 
 //    Creating edges with outCitations and inCitations
     val citations= journalRdd.map(journal => ((hex2dec(journal.id).toLong,journal.outCitations),1)).distinct
-//    println(s"Number of entries in citationsRDD is ${citations.count()}") //1000000
+    println(s"Number of entries in citationsRDD is ${citations.count()}") //1000000
 
 //    printing citation values
 //    citations.foreach(x => println(x._1,x._2))
@@ -109,6 +113,7 @@ object CitationParser{
             outCitations.map(outCitation => Edge(id,hex2dec(outCitation).toLong,num))
         }
 
+      println(s"Number of entries in citationEdges is ${citationEdges.count()}")
 //    val citationEdges= citations.map{ case(id,outCitations) => outCitations.foreach(outCitation => Edge(id,hex2dec(outCitation).toLong))}}
 
 //    val citationEdges = citations.map {
@@ -123,8 +128,8 @@ object CitationParser{
     val graph = Graph(journalVertices,citationEdges,nocitation)
     println("graph created")
 
-//    println(s"Total Number of journals: ${graph.numVertices}")
-//    println(s"Total Number of citations: ${graph.numEdges}")
+      println(s"Total Number of journals: ${graph.numVertices}")
+      println(s"Total Number of citations: ${graph.numEdges}")
 
 //    println("printing vertices")
 //    println(s"${graph.vertices.take(10).foreach(println)}")
