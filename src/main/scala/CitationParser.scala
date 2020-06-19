@@ -42,14 +42,24 @@ object CitationParser{
 
   def main(args: Array[String]): Unit = {
 
+    val conf = new SparkConf()
+
+//    setting configuration
+    conf.set("spark.executor.memory","90g")
+      .set("spark.driver.memory","90g")
+      .setMaster("local[*]")
+      .setAppName("Citation")
+
 //    creating a spark context driver and setting log level to error
-    val sc = new SparkContext("local[*]","Citation")
-    sc.setLogLevel("ERROR")
+    val sc = new SparkContext(conf).setLogLevel("ERROR")
+
+//    val sc = new SparkContext("local[*]","Citation").setLogLevel("ERROR")
 
 //    reading the file using the spark context
-    val lines = sc.textFile("file:///All Items Offline/Sem2/CS648 Project/sample_data/s2-corpus-00/s2-corpus-00")
+    val lines_orig = sc.textFile("file:///All Items Offline/Sem2/CS648 Project/sample_data/s2-corpus-00/s2-corpus-00")
+    val lines = lines_orig.sample(false,0.01,2)
 
-//     println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
+     println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
 //    extracting the data using lift json parser
     val journalRdd: RDD[Journal] = lines.map(x => {implicit val formats: DefaultFormats.type = DefaultFormats;parse(x).extract[Journal]}).cache()
 
@@ -147,6 +157,7 @@ object CitationParser{
       .take(10) // get the top 10
       .foreach(x => println(x._2._2))
 
+    sc.stop()
     println("end")
   }
 }
