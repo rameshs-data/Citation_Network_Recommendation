@@ -49,11 +49,12 @@ object CitationParser{
       .set("spark.driver.memory","90g")
       .setMaster("local[*]")
       .setAppName("Citation")
-
 //    creating a spark context driver and setting log level to error
-    val sc = new SparkContext(conf).setLogLevel("ERROR")
+    val sc = new SparkContext(conf)
+      sc.setLogLevel("ERROR")
 
-//    val sc = new SparkContext("local[*]","Citation").setLogLevel("ERROR")
+//    val sc = new SparkContext("local[*]","Citation")
+//    sc.setLogLevel("ERROR")
 
 //    reading the file using the spark context
     val lines_orig = sc.textFile("file:///All Items Offline/Sem2/CS648 Project/sample_data/s2-corpus-00/s2-corpus-00")
