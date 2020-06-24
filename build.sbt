@@ -2,7 +2,7 @@ name := "CNA"
 
 version := "0.1"
 
-scalaVersion := "2.12.11"
+scalaVersion := "2.11.7"
 
 val sparkVersion = "2.4.5"
 
@@ -12,3 +12,8 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-graphx" % sparkVersion,
   "net.liftweb" %% "lift-json" % "3.4.1"
 )
+
+assemblyMergeStrategy in assembly := {
+ case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+ case x => MergeStrategy.first
+}
