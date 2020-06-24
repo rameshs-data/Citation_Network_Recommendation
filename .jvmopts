@@ -1,0 +1,2 @@
+-Xmx1450G 
+-XX:MaxMetaspaceSize=1450G
