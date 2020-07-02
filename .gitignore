@@ -1,10 +1,11 @@
 # sbt
 # (may want to keep parts of 'project')
 bin/
-#project/
+project/
 target/
 build/
 #!/project/plugins.sbt
+#!/project/build.properties
 
 # eclipse
 build
