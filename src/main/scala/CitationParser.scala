@@ -1,8 +1,9 @@
+import java.io.FileInputStream
+import java.util.Properties
 import org.apache.spark.{SparkConf, SparkContext}
 import net.liftweb.json.{DefaultFormats, _}
 import org.apache.spark.graphx.{Edge, Graph}
 import org.apache.spark.rdd.RDD
-import sun.security.provider.certpath.Vertex
 
 object CitationParser{
 
@@ -61,24 +62,41 @@ object CitationParser{
 //    val sc = new SparkContext("local[*]","Citation")
 //    sc.setLogLevel("ERROR")
 
-//    reading the file using the spark context
-        println("Reading file to RDD...")
-	val lines = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000")
+    //    reading the file using the spark context
+    val prop=
+    try{
+      println("Reading file to RDD...")
+      val prop = new Properties()
+      if(System.getenv("PATH").contains("Windows")){
+          prop.load(new FileInputStream("application-local.properties"))
+      }else if(System.getenv("PATH").contains("ichec")){
+          prop.load(new FileInputStream("application-ichec.properties"))
+      }else{
+        println("Issue identifying the environment, PATH is:",System.getenv("PATH"))
+      }
+      (prop)
+    } catch { case e: Exception =>
+    e.printStackTrace()
+    sys.exit(1)
+  }
+
 //	val lines2 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-001")
 //	val lines3 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-002")
 //	val lines4 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-003")
 //	val lines5 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-004")
 
 //	val lines = lines1.union(lines2).union(lines3).union(lines4).union(lines5)
-//      val lines = lines_orig.sample(false,0.93,2)
-	println("RDD created!")
 
-     println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
+    val lines_orig = sc.textFile(prop.getProperty("file.path"))
+    val lines = lines_orig.sample(false,prop.getProperty("sample.size").toDouble,2)
+	  println("RDD created!")
+
+    println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
 //    extracting the data using lift json parser
-	println("Extracting the data using lift json parser...")
+	  println("Extracting the data using lift json parser...")
     val journalRdd: RDD[Journal] = lines.map(x => {implicit val formats: DefaultFormats.type = DefaultFormats;parse(x).extract[Journal]}).cache()
 
-	println("journalRdd created!")
+  	println("journalRdd created!")
 //    println(s"Number of entries in journalRDD is ${journalRdd.count()}") //1000000
 
 //    printing the values of the journals
