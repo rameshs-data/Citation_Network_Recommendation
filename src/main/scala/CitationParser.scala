@@ -7,8 +7,8 @@ import org.apache.spark.rdd.RDD
 
 object CitationParser{
 
-//  define the journal schema
-  case class Journal(
+//  define the publication schema
+  case class Publication(
                       entities: List[String],
                       journalVolume: Option[String],
                       journalPages: String,
@@ -94,36 +94,36 @@ object CitationParser{
     println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
 //    extracting the data using lift json parser
 	  println("Extracting the data using lift json parser...")
-    val journalRdd: RDD[Journal] = lines.map(x => {implicit val formats: DefaultFormats.type = DefaultFormats;parse(x).extract[Journal]}).cache()
+    val publicationRdd: RDD[Publication] = lines.map(x => {implicit val formats: DefaultFormats.type = DefaultFormats;parse(x).extract[Publication]}).cache()
 
-  	println("journalRdd created!")
-//    println(s"Number of entries in journalRDD is ${journalRdd.count()}") //1000000
+  	println("publicationRdd created!")
+//    println(s"Number of entries in publicationRdd is ${publicationRdd.count()}") //1000000
 
-//    printing the values of the journals
-//    journalRdd.foreach(x => println(x.outCitations))
+//    printing the values of the publications
+//    publicationRdd.foreach(x => println(x.outCitations))
 
-//     create journal RDD vertices with ID and Name
-	println("creating journal vertices...")
-    val journalVertices: RDD[(Long, String)] = journalRdd.map(journal => (hex2dec(journal.id).toLong, journal.title)).distinct
+//     create publication RDD vertices with ID and Name
+	println("creating publication vertices...")
+    val publicationVertices: RDD[(Long, String)] = publicationRdd.map(publication => (hex2dec(publication.id).toLong, publication.journalName)).distinct
 
-	println("journal vertices created!")
-//    println(s"Number of entries in journalVerticesRDD is ${journalVertices.count()}") //1000000
+	println("publication vertices created!")
+//    println(s"Number of entries in publicationVerticesRDD is ${publicationVertices.count()}") //1000000
 
 //    printing the values of the vertex
-//    journalVertices.foreach(x => println(x._1))
+//    publicationVertices.foreach(x => println(x._1))
 
 //     Defining a default vertex called nocitation
     val nocitation = "nocitation"
 
-//     Map journal ID to the journal name to be printed
-//    val journalVertexMap = journalVertices.map(journal =>{
-//      case (journal._1, name) =>
-//        journal._1 -> name
+//     Map publication ID to the publication name to be printed
+//    val publicationVertexMap = publicationVertices.map(publication =>{
+//      case (publication._1, name) =>
+//        publication._1 -> name
 //    }).collect.toList.toMap
 
 //    Creating edges with outCitations and inCitations
 	println("creating citations...")  
-    val citations= journalRdd.map(journal => ((hex2dec(journal.id).toLong,journal.outCitations),1)).distinct
+    val citations= publicationRdd.map(publication => ((hex2dec(publication.id).toLong,publication.outCitations),1)).distinct
 //    println(s"Number of entries in citationsRDD is ${citations.count()}") //1000000
 
 	println("citations created!")
@@ -161,10 +161,10 @@ object CitationParser{
 //    citationEdges.foreach(println)
 
     println("creating graph")
-    val graph = Graph(journalVertices,citationEdges,nocitation)
+    val graph = Graph(publicationVertices,citationEdges,nocitation)
     println("graph created")
 
-//      println(s"Total Number of journals: ${graph.numVertices}")
+//      println(s"Total Number of publications: ${graph.numVertices}")
 //      println(s"Total Number of citations: ${graph.numEdges}")
 
 //    println("printing vertices")
@@ -178,7 +178,7 @@ object CitationParser{
     // use pageRank
 //    val ranks = graph.pageRank(0.1).vertices
 //    // join the ranks  with the map of airport id to name
-//    val temp= ranks.join(journalVertices)
+//    val temp= ranks.join(publicationVertices)
 //    temp.take(1)
 //
 //    // sort by ranking
@@ -192,17 +192,21 @@ object CitationParser{
 
     println("Finding the most influential citations")
     
-    println("creating rank: Started");
-    val ranks = graph.pageRank(0.1).vertices
-    println("creating rank: Completed");
+//    println("creating rank: Started");
+//    val ranks = graph.pageRank(0.1).vertices
+//    println("creating rank: Completed");
+//
+//    println("sorting and printing ranks");
+//      ranks
+//      .join(publicationVertices)
+//      .sortBy(_._2._1, ascending=false) // sort by the rank
+//      .take(10) // get the top 10
+//      .foreach(x => println(x._2._2))
+//    println("printing ranks: Completed");
 
-    println("sorting and printing ranks");
-      ranks
-      .join(journalVertices)
-      .sortBy(_._2._1, ascending=false) // sort by the rank
-      .take(10) // get the top 10
-      .foreach(x => println(x._2._2))
-    println("printing ranks: Completed");
+
+    println("Finding strongly connected components:")
+    graph.stronglyConnectedComponents(10).vertices.take(100).foreach(println)
 
     sc.stop()
     println("end")
