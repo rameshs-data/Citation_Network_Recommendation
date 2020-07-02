@@ -63,13 +63,13 @@ object CitationParser{
 
 //    reading the file using the spark context
         println("Reading file to RDD...")
-	val lines1 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000")
-	val lines2 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-001")
-	val lines3 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-002")
-	val lines4 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-003")
-	val lines5 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-004")
+	val lines = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000")
+//	val lines2 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-001")
+//	val lines3 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-002")
+//	val lines4 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-003")
+//	val lines5 = sc.textFile("file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-004")
 
-	val lines = lines1.union(lines2).union(lines3).union(lines4).union(lines5)
+//	val lines = lines1.union(lines2).union(lines3).union(lines4).union(lines5)
 //      val lines = lines_orig.sample(false,0.93,2)
 	println("RDD created!")
 
