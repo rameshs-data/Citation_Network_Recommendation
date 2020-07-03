@@ -1,10 +1,14 @@
+import sbt.util
+
 name := "CNA"
 
 version := "0.1"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.12"
 
-val sparkVersion = "2.4.5"
+val sparkVersion = "2.4.3"
+
+logLevel := util.Level.Debug
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,

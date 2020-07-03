@@ -1,2 +1,2 @@
--Xmx1450G 
--XX:MaxMetaspaceSize=1450G
+-Xmx1G
+-XX:MaxMetaspaceSize=1G

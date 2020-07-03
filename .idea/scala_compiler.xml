@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ScalaCompilerConfiguration">
-    <profile name="sbt 1" modules="CNA,cna">
+    <profile name="sbt 1" modules="cna">
       <option name="implicitConversions" value="true" />
     </profile>
+    <profile name="sbt 2" modules="CNA" />
   </component>
 </project>
