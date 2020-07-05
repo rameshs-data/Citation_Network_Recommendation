@@ -17,7 +17,7 @@ libraryDependencies ++= Seq(
   "net.liftweb" %% "lift-json" % "3.4.1"
 )
 
-assemblyMergeStrategy in assembly := {
- case PathList("META-INF", xs @ _*) => MergeStrategy.discard
- case x => MergeStrategy.first
-}
+//assemblyMergeStrategy in assembly := {
+// case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+// case x => MergeStrategy.first
+//}
