@@ -6,6 +6,8 @@ import org.apache.spark.graphx.{Edge, Graph}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
+import scala.util.control.Breaks._
+
 object CitationParser {
 
   def main(args: Array[String]): Unit = {
@@ -53,7 +55,7 @@ object CitationParser {
     }).cache()
     println("publicationRdd created!")
 
-    val publicationGraph = getPublicationGraph(lines, publicationRdd)
+    //    val publicationGraph = getPublicationGraph(lines, publicationRdd)
 
     //    println(s"Total Number of publications: ${publicationGraph.numVertices}")
     //    println(s"Total Number of citations: ${publicationGraph.numEdges}")
@@ -76,10 +78,92 @@ object CitationParser {
     //      .foreach(x => println(x._2._2))
     //    println("printing ranks: Completed");
 
-    getJournalGraph(lines, publicationRdd)
+    val journalGraph = getJournalGraph(lines, publicationRdd)
+    println(s"Total number of journal vertices: ${journalGraph.numVertices}")
+    println(s"Total number of journal edges: ${journalGraph.numEdges}")
 
     sc.stop()
     println("end")
+  }
+
+  def getJournalGraph(lines: RDD[String], publicationRdd: RDD[Publication]) = {
+
+    //    create journal RDD vertices with publications
+    val publicationGroups = publicationRdd.groupBy(publication => publication.journalName)
+    //    val journalVertices: Unit = journalRdd.foreach(publicationGroup => Journal(publicationGroup._1,publicationGroup._2.toList))
+    val journalRDD: RDD[Journal] = publicationGroups.map(x => Journal(x._1, x._2.toList)).distinct
+
+    println("creating journal vertices...")
+    val journalWithIndex = journalRDD.zipWithIndex()
+    val journalVertices = journalWithIndex.map { case (k, v) => (v, k) }
+    val journalVertices2 = journalVertices.map {
+      case (k, v) => (k, v.journalName)
+    }
+    val journalVertices3 = journalVertices2.map { case (k, v) => (v, k) }
+
+    val journalPublicDict = journalVertices.flatMap {
+      case (jid, journal) =>
+        journal.publications.map(p => (p.id, jid))
+    }.collectAsMap()
+
+    //    val journalVertices = journalRDD.map(journal => (hex2dec(journal.journalName).toLong, journal.publications)).distinct
+    //    val journalVertices = journalRDD.map(journal => (withIndex.filter(x => x._1.equals(journal)))).distinct
+    println("journal vertices created!")
+
+    val nocitation = "nocitation"
+
+    //    val testEdges = journalRDD.flatMap {
+    //      journal =>
+    //        journal.publications.flatMap(
+    //          publication => publication.outCitations.map(
+    //            outCitation => ((publication.journalName,
+    //              journalRDD.map(_.publications.filter(_.id.equals(outCitation)).head.journalName).first, 1))))
+    //    }
+
+    //        val testEdges = journalRDD.flatMap {
+    //          journal =>
+    //            journal.publications.flatMap(
+    //              publication => publication.outCitations.map(
+    //                outCitation => ((journalWithIndex.lookup(journal),
+    //                  journalRDD.map(_.publications.filter(_.id.equals(outCitation)).head.journalName).first, 1))))
+    //        }
+
+    //    val testEdges = journalVertices.flatMap {
+    //      case(jid,journal) =>
+    //        journal.publications.flatMap(
+    //          publication => publication.outCitations.map(
+    //            outCitation => (jid,
+    //              journalVertices.filter(_._2.publications.filter(_.id.equals(outCitation)).equals(true)).first._1,1)))
+    //    }
+
+    //    val testEdges = journalVertices.flatMap {
+    //      case(jid,journal) =>
+    //        journal.publications.flatMap(
+    //          publication => publication.outCitations.map(
+    //            outCitation => (jid,
+    //              (journalVertices.map(x => if(x._2.publications.filter(_.id.equals(outCitation))!=null) x._1).first.toString.toLong),1)))
+    //    }
+
+    val testEdges = journalVertices.flatMap {
+      case (jid, journal) =>
+        journal.publications.flatMap(
+          publication => publication.outCitations.map(
+            outCitation => (jid,
+              journalPublicDict.getOrElse(outCitation,-1.toLong)
+              , 1)))
+    }
+
+    val testEdges2 = testEdges.filter(te => te._1 != te._2).filter(te => te._2 != -1)
+
+    val zeroVal = 0
+    val addToCounts = (acc: Int, ele: Int) => (acc + ele)
+    val sumPartitionCounts = (acc1: Int, acc2: Int) => (acc1 + acc2)
+
+    println("creating journal edges...")
+    val journalEdges = testEdges2.map(te2 => ((te2._1, te2._2), te2._3)).aggregateByKey(0)(addToCounts, sumPartitionCounts).map(x => Edge(x._1._1, x._1._2, x._2))
+    println("journal edges created!")
+
+    Graph(journalVertices2, journalEdges, nocitation)
   }
 
   //  define the method to get publication graph
@@ -141,7 +225,7 @@ object CitationParser {
     //    println(s"${citationEdges.take(10).foreach(println)}")
     //    citationEdges.foreach(println)
 
-    println("creating publicationgraph")
+    println("creating publicationgraph...")
     //    creating publication graph
     Graph(publicationVertices, citationEdges, nocitation)
   }
@@ -151,60 +235,6 @@ object CitationParser {
     hex.toLowerCase().toList.map(
       "0123456789abcdef".indexOf(_)).map(
       BigInt(_)).reduceLeft(_ * 16 + _)
-  }
-
-  def getJournalGraph(lines: RDD[String], publicationRdd: RDD[Publication]) = {
-
-    //    create journal RDD vertices with publications
-    val publicationGroups = publicationRdd.groupBy(publication => publication.journalName)
-    //    val journalVertices: Unit = journalRdd.foreach(publicationGroup => Journal(publicationGroup._1,publicationGroup._2.toList))
-    val journalRDD: RDD[Journal] = publicationGroups.map(x => Journal(x._1, x._2.toList)).distinct
-
-    println("creating journal vertices...")
-    val journalWithIndex = journalRDD.zipWithIndex()
-    val journalVertices = journalWithIndex.map { case (k, v) => (v, k) }
-    //    val journalVertices = journalRDD.map(journal => (hex2dec(journal.journalName).toLong, journal.publications)).distinct
-    //    val journalVertices = journalRDD.map(journal => (withIndex.filter(x => x._1.equals(journal)))).distinct
-    println("journal vertices created!")
-
-    val nocitation = "nocitation"
-
-    //    val testEdges = journalRDD.flatMap {
-    //      journal =>
-    //        journal.publications.flatMap(
-    //          publication => publication.outCitations.map(
-    //            outCitation => ((publication.journalName,
-    //              journalRDD.map(_.publications.filter(_.id.equals(outCitation)).head.journalName).first, 1))))
-    //    }
-
-    //        val testEdges = journalRDD.flatMap {
-    //          journal =>
-    //            journal.publications.flatMap(
-    //              publication => publication.outCitations.map(
-    //                outCitation => ((journalWithIndex.lookup(journal),
-    //                  journalRDD.map(_.publications.filter(_.id.equals(outCitation)).head.journalName).first, 1))))
-    //        }
-
-    val testEdges = journalVertices.flatMap {
-      case(id,journal) =>
-        journal.publications.flatMap(
-          publication => publication.outCitations.map(
-            outCitation => (id,
-              journalVertices.map(x => x._2.publications.filter(_.id.equals(outCitation)).head.journalName).first,1)))
-    }
-
-    val testEdges2 = testEdges.filter(te => te._1 != te._2)
-
-    val zeroVal = 0
-    val addToCounts = (acc: Int, ele: Int) => (acc + ele)
-    val sumPartitionCounts = (acc1: Int, acc2: Int) => (acc1 + acc2)
-
-    println("creating journal edges...")
-    val journalEdges = testEdges2.map(te2 => ((te2._1, te2._2), te2._3)).aggregateByKey(0)(addToCounts, sumPartitionCounts).map(x => Edge(x._1._1, x._1._2, x._2))
-    println("journal edges created!")
-
-    Graph(journalVertices, journalEdges, nocitation)
-
   }
 
   //  define the journal schema
