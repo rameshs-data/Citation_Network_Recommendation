@@ -1,14 +1,65 @@
-import java.io.FileInputStream
+import java.io.{FileInputStream, Serializable}
 import java.util.Properties
 
 import net.liftweb.json.{DefaultFormats, _}
-import org.apache.spark.graphx.{Edge, Graph}
+import org.apache.spark.graphx.{Edge, Graph, VertexRDD}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
-import scala.util.control.Breaks._
+import scala.reflect.ClassTag
 
 object CitationParser {
+
+  def drawGraph[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED]) = {
+
+    val u = java.util.UUID.randomUUID
+    val v = g.vertices.collect.map(_._1)
+    println(
+      """%html
+<div id='a""" + u +
+        """' style='width:960px; height:500px'></div>
+<style>
+.node circle { fill: gray; }
+.node text { font: 10px sans-serif;
+     text-anchor: middle;
+     fill: white; }
+line.link { stroke: gray;
+    stroke-width: 1.5px; }
+</style>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+.var width = 960, height = 500;
+var svg = d3.select("#a""" + u +
+        """").append("svg")
+.attr("width", width).attr("height", height);
+var nodes = [""" + v.map("{id:" + _ + "}").mkString(",") +
+        """];
+var links = [""" + g.edges.collect.map(
+        e => "{source:nodes[" + v.indexWhere(_ == e.srcId) +
+          "],target:nodes[" +
+          v.indexWhere(_ == e.dstId) + "]}").mkString(",") +
+        """];
+var link = svg.selectAll(".link").data(links);
+link.enter().insert("line", ".node").attr("class", "link");
+var node = svg.selectAll(".node").data(nodes);
+var nodeEnter = node.enter().append("g").attr("class", "node")
+nodeEnter.append("circle").attr("r", 8);
+nodeEnter.append("text").attr("dy", "0.35em")
+ .text(function(d) { return d.id; });
+d3.layout.force().linkDistance(50).charge(-200).chargeDistance(300)
+.friction(0.95).linkStrength(0.5).size([width, height])
+.on("tick", function() {
+link.attr("x1", function(d) { return d.source.x; })
+  .attr("y1", function(d) { return d.source.y; })
+  .attr("x2", function(d) { return d.target.x; })
+  .attr("y2", function(d) { return d.target.y; });
+node.attr("transform", function(d) {
+return "translate(" + d.x + "," + d.y + ")";
+});
+}).nodes(nodes).links(links).start();
+</script>
+ """)
+  }
 
   def main(args: Array[String]): Unit = {
 
@@ -82,9 +133,21 @@ object CitationParser {
     println(s"Total number of journal vertices: ${journalGraph.numVertices}")
     println(s"Total number of journal edges: ${journalGraph.numEdges}")
 
+    //    val journalPageRank = journalGraph.pag
+    //    drawGraph(journalGraph)
+
+    val outdegrees: VertexRDD[Int] = journalGraph.outDegrees
+
+
+
+
     sc.stop()
     println("end")
   }
+
+//  def addJournalPageRank(journalGraph: Graph[]): Graph[VertexProperty, EdgeProperty] = {
+//    val journalRanks = journalGraph.pageRank(0.0001).vertices
+//  }
 
   def getJournalGraph(lines: RDD[String], publicationRdd: RDD[Publication]) = {
 
@@ -112,44 +175,12 @@ object CitationParser {
 
     val nocitation = "nocitation"
 
-    //    val testEdges = journalRDD.flatMap {
-    //      journal =>
-    //        journal.publications.flatMap(
-    //          publication => publication.outCitations.map(
-    //            outCitation => ((publication.journalName,
-    //              journalRDD.map(_.publications.filter(_.id.equals(outCitation)).head.journalName).first, 1))))
-    //    }
-
-    //        val testEdges = journalRDD.flatMap {
-    //          journal =>
-    //            journal.publications.flatMap(
-    //              publication => publication.outCitations.map(
-    //                outCitation => ((journalWithIndex.lookup(journal),
-    //                  journalRDD.map(_.publications.filter(_.id.equals(outCitation)).head.journalName).first, 1))))
-    //        }
-
-    //    val testEdges = journalVertices.flatMap {
-    //      case(jid,journal) =>
-    //        journal.publications.flatMap(
-    //          publication => publication.outCitations.map(
-    //            outCitation => (jid,
-    //              journalVertices.filter(_._2.publications.filter(_.id.equals(outCitation)).equals(true)).first._1,1)))
-    //    }
-
-    //    val testEdges = journalVertices.flatMap {
-    //      case(jid,journal) =>
-    //        journal.publications.flatMap(
-    //          publication => publication.outCitations.map(
-    //            outCitation => (jid,
-    //              (journalVertices.map(x => if(x._2.publications.filter(_.id.equals(outCitation))!=null) x._1).first.toString.toLong),1)))
-    //    }
-
     val testEdges = journalVertices.flatMap {
       case (jid, journal) =>
         journal.publications.flatMap(
           publication => publication.outCitations.map(
             outCitation => (jid,
-              journalPublicDict.getOrElse(outCitation,-1.toLong)
+              journalPublicDict.getOrElse(outCitation, -1.toLong)
               , 1)))
     }
 
@@ -237,11 +268,11 @@ object CitationParser {
       BigInt(_)).reduceLeft(_ * 16 + _)
   }
 
-  //  define the journal schema
-  case class Journal(
+  class VertexProperty(var inDeg:Int, var outDeg:Int, var pageRank:Double) extends Serializable
+  case class Journal(in:Int, out:Int, pr:Double,
                       journalName: String,
                       publications: List[Publication]
-                    )
+                    ) extends VertexProperty(in, out, pr)
 
   //  define the publication schema
   case class Publication(
