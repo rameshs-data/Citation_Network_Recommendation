@@ -1,8 +1,8 @@
-import java.io.{FileInputStream, Serializable}
+import java.io.FileInputStream
 import java.util.Properties
 
 import net.liftweb.json.{DefaultFormats, _}
-import org.apache.spark.graphx.{Edge, Graph, VertexRDD}
+import org.apache.spark.graphx.{Edge, EdgeDirection, Graph, VertexId}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -94,6 +94,8 @@ return "translate(" + d.x + "," + d.y + ")";
     println("Reading file to RDD...")
     val lines_orig = sc.textFile(prop.getProperty("file.path"))
     val lines = lines_orig.sample(false, prop.getProperty("sample.size").toDouble, 2)
+
+    lines.take(8).foreach(println)
     println("RDD created!")
 
     println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
@@ -130,24 +132,62 @@ return "translate(" + d.x + "," + d.y + ")";
     //    println("printing ranks: Completed");
 
     val journalGraph = getJournalGraph(lines, publicationRdd)
-    println(s"Total number of journal vertices: ${journalGraph.numVertices}")
-    println(s"Total number of journal edges: ${journalGraph.numEdges}")
+    //    println(s"Total number of journal vertices: ${journalGraph.numVertices}")
+    //    println(s"Total number of journal edges: ${journalGraph.numEdges}")
 
-    //    val journalPageRank = journalGraph.pag
-    //    drawGraph(journalGraph)
+    //    println("Please enter the journal name to search: ")
+    //    val testJournal = scala.io.StdIn.readLine()
+    //
+    //    journalGraph.inDegrees.filter(_._1.equals(testJournal)).foreach(println)
 
-    val outdegrees: VertexRDD[Int] = journalGraph.outDegrees
+    val pageRank = journalGraph.pageRank(0.0001).cache().vertices
+    //    pageRank.join(journalGraph.vertices)
+    //    println("sorting and printing ranks");
+    //          pageRank
+    //          .join(journalGraph.vertices)
+    //          .sortBy(_._2._1, ascending=false) // sort by the rank
+    //          .take(8) // get the top 10
+    //          .foreach(x => println(x._2._2, x._2._1, x._1))
+    //        println("printing ranks: Completed");
 
+    //        drawGraph(journalGraph
 
+    val inDegrees = journalGraph.inDegrees
+    val outDegrees = journalGraph.outDegrees
 
+    val journalGraphWithRank = pageRank.join(journalGraph.vertices)
+    println("indegrees:")
+    inDegrees.foreach(println)
+    println("outdegrees:")
+    outDegrees.foreach(println)
+
+    val jourGraphWithDegrees = journalGraph.mapVertices {
+      case (jid, jname) =>
+        JournalWithDegrees(jid, jname, 0, 0, 0.0)
+    }
+
+    val degreeGraph = jourGraphWithDegrees.outerJoinVertices(jourGraphWithDegrees.inDegrees) {
+      (jid, j, inDegOpt) => JournalWithDegrees(j.jid, j.journalName, inDegOpt.getOrElse(0), j.outDeg, j.pr)
+    }.outerJoinVertices(jourGraphWithDegrees.outDegrees) {
+      (jid, j, outDegOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, outDegOpt.getOrElse(0), j.pr)
+    }.outerJoinVertices(jourGraphWithDegrees.pageRank(0.0001).vertices) {
+      (jid, j, prOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, j.outDeg, prOpt.getOrElse(0))
+    }
+
+    degreeGraph.vertices.foreach(println)
+
+    val result = degreeGraph.vertices.filter {
+      case (jid, jv) => (jv.journalName.equals("J3"))
+    }.first
+
+    val result2 = degreeGraph.collectNeighbors(EdgeDirection.Out).lookup(result._1)
+    println("after filter:")
+
+    result2.map(x => x.foreach(y => println(y._2)))
 
     sc.stop()
     println("end")
   }
-
-//  def addJournalPageRank(journalGraph: Graph[]): Graph[VertexProperty, EdgeProperty] = {
-//    val journalRanks = journalGraph.pageRank(0.0001).vertices
-//  }
 
   def getJournalGraph(lines: RDD[String], publicationRdd: RDD[Publication]) = {
 
@@ -268,11 +308,19 @@ return "translate(" + d.x + "," + d.y + ")";
       BigInt(_)).reduceLeft(_ * 16 + _)
   }
 
-  class VertexProperty(var inDeg:Int, var outDeg:Int, var pageRank:Double) extends Serializable
-  case class Journal(in:Int, out:Int, pr:Double,
+  case class JournalWithDegrees(
+                                 jid: VertexId,
+                                 journalName: String,
+                                 inDeg: Int,
+                                 outDeg: Int,
+                                 pr: Double
+                               )
+
+  //  define the journal schema
+  case class Journal(
                       journalName: String,
                       publications: List[Publication]
-                    ) extends VertexProperty(in, out, pr)
+                    )
 
   //  define the publication schema
   case class Publication(
