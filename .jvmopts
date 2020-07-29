@@ -1,2 +1,4 @@
--Xmx1G
--XX:MaxMetaspaceSize=1G
+-Xms256m
+-Xmx768m
+-XX:MaxMetaspaceSize=768m
+-Dfile.encoding=UTF-8

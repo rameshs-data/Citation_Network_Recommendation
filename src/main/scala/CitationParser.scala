@@ -2,10 +2,11 @@ import java.io.FileInputStream
 import java.util.Properties
 
 import net.liftweb.json.{DefaultFormats, _}
-import org.apache.spark.graphx.{Edge, EdgeDirection, Graph, VertexId}
+import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
+import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 object CitationParser {
@@ -65,12 +66,6 @@ return "translate(" + d.x + "," + d.y + ")";
 
     //    Creating a spark configuration
     val conf = new SparkConf()
-    conf.setMaster("local[*]")
-      .setAppName("Citation")
-
-    //    Creating a spark context driver and setting log level to error
-    val sc = new SparkContext(conf)
-    sc.setLogLevel("ERROR")
 
     //    Getting the properties for the environment
     val prop =
@@ -78,6 +73,7 @@ return "translate(" + d.x + "," + d.y + ")";
         val prop = new Properties()
         if (System.getenv("PATH").contains("Windows")) {
           prop.load(new FileInputStream("application-local.properties"))
+          conf.setMaster("local[*]")
         } else if (System.getenv("PATH").contains("ichec")) {
           prop.load(new FileInputStream("application-ichec.properties"))
         } else {
@@ -90,231 +86,306 @@ return "translate(" + d.x + "," + d.y + ")";
           sys.exit(1)
       }
 
-    //    Reading file to rdd
+    conf.setAppName("Citation")
+
+    //    Creating a spark context driver and setting log level to error
+    val sc = new SparkContext(conf)
+    sc.setLogLevel("ERROR")
+
+    //    Reading file to RDD
     println("Reading file to RDD...")
     val lines_orig = sc.textFile(prop.getProperty("file.path"))
     val lines = lines_orig.sample(false, prop.getProperty("sample.size").toDouble, 2)
-
-    lines.take(8).foreach(println)
     println("RDD created!")
 
-    println(s"Number of entries in linesRDD is ${lines.count()}") //1000000
+    //    printing the top few rows
+    //    lines.take(8).foreach(println)
+
+    //    printing the number of records
+    println(s"Number of entries in linesRDD is ${lines.count()}")
 
     //    extracting the data using lift json parser
     println("Extracting the data using lift json parser...")
-    val publicationRdd: RDD[Publication] = lines.map(x => {
+    val publicationsRdd: RDD[Publication] = lines.map(line => {
       implicit val formats: DefaultFormats.type = DefaultFormats;
-      parse(x).extract[Publication]
+      parse(line).extract[Publication]
     }).cache()
     println("publicationRdd created!")
 
-    //    val publicationGraph = getPublicationGraph(lines, publicationRdd)
+    //    checking for test flags
+    val testMode = prop.getProperty("test.mode")
+    val testEntity = prop.getProperty("test.entity")
+    val testPrintMode = prop.getProperty("test.print.results")
 
-    //    println(s"Total Number of publications: ${publicationGraph.numVertices}")
-    //    println(s"Total Number of citations: ${publicationGraph.numEdges}")
-    //    println("printing vertices")
-    //    println(s"${publicationGraph.vertices.take(10).foreach(println)}")
-    //    println("printing edges")
-    //    println(s"${publicationGraph.edges.take(10).foreach(println)}")
+    if (testMode.equals("true")) {
+      if (testEntity.equals("publication")) {
+        prfmChkPblctns(prop, sc, publicationsRdd, testPrintMode)
+      }
+      if (testEntity.equals("journal")) {
+        prfmChkJrnls(prop, sc, publicationsRdd, testPrintMode)
+      }
+    } else {
+      println("Please select one of the below options:")
+      println("1 : Search for a Publication")
+      println("2 : Search for a Journal")
+      print("Enter here:")
 
-    println("Finding the most influential citations")
+      val input = scala.io.StdIn.readInt
 
-    //    println("creating rank: Started");
-    //    val ranks = graph.pageRank(0.1).vertices
-    //    println("creating rank: Completed");
-    //
-    //    println("sorting and printing ranks");
-    //      ranks
-    //      .join(publicationVertices)
-    //      .sortBy(_._2._1, ascending=false) // sort by the rank
-    //      .take(10) // get the top 10
-    //      .foreach(x => println(x._2._2))
-    //    println("printing ranks: Completed");
+      input match {
+        case 1 => {
+          //  Searching for publications
+          val publicationGraph = getPublicationGraph(sc, publicationsRdd)
 
-    val journalGraph = getJournalGraph(lines, publicationRdd)
-    //    println(s"Total number of journal vertices: ${journalGraph.numVertices}")
-    //    println(s"Total number of journal edges: ${journalGraph.numEdges}")
+          println("Please enter the publication name or X to exit:")
 
-    //    println("Please enter the journal name to search: ")
-    //    val testJournal = scala.io.StdIn.readLine()
-    //
-    //    journalGraph.inDegrees.filter(_._1.equals(testJournal)).foreach(println)
+          Iterator.continually(scala.io.StdIn.readLine)
+            .takeWhile(_ != "X")
+            .foreach {
+              searchPublication =>
+                publicationGraph.collectNeighbors(EdgeDirection.In).lookup((publicationGraph.vertices.filter {
+                  journal => (journal._2.publicationName.equals(searchPublication))
+                }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr).foreach(publication => println(publication._2)))
+                println("Please enter the publication name or X to exit:")
+            }
 
-    val pageRank = journalGraph.pageRank(0.0001).cache().vertices
-    //    pageRank.join(journalGraph.vertices)
-    //    println("sorting and printing ranks");
-    //          pageRank
-    //          .join(journalGraph.vertices)
-    //          .sortBy(_._2._1, ascending=false) // sort by the rank
-    //          .take(8) // get the top 10
-    //          .foreach(x => println(x._2._2, x._2._1, x._1))
-    //        println("printing ranks: Completed");
+          //          println("Finding the most influential publications...")
+          //
+          //          println("creating rank: Started");
+          //          val publicationRanks = publicationGraph.pageRank(0.0001).vertices
+          //          println("creating rank: Completed");
+          //  printing publication with top 10 ranks
+          //          println("sorting and printing ranks");
+          //          publicationRanks
+          //            .join(publicationGraph.vertices)
+          //            .sortBy(_._2._1, ascending = false) // sort by the rank
+          //            .take(10) // get the top 10
+          //            .foreach(publication => println(publication._2._2))
+          //          println("printing ranks: Completed");
+        }
+        case 2 => {
+          //  Searching for journal
+          val jrnlDgrGrph = getJournalGraph(sc, publicationsRdd)
 
-    //        drawGraph(journalGraph
+          println("Please enter the journal name or X to exit:")
 
-    val inDegrees = journalGraph.inDegrees
-    val outDegrees = journalGraph.outDegrees
-
-    val journalGraphWithRank = pageRank.join(journalGraph.vertices)
-    println("indegrees:")
-    inDegrees.foreach(println)
-    println("outdegrees:")
-    outDegrees.foreach(println)
-
-    val jourGraphWithDegrees = journalGraph.mapVertices {
-      case (jid, jname) =>
-        JournalWithDegrees(jid, jname, 0, 0, 0.0)
+          Iterator.continually(scala.io.StdIn.readLine)
+            .takeWhile(_ != "X")
+            .foreach {
+              searchJournal =>
+                jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
+                  journal => (journal._2.journalName.equals(searchJournal))
+                }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println(journal._2)))
+                println("Please enter the journal name or X to exit:")
+            }
+        }
+        case _ => println("Invalide Input! Exiting Now...!")
+      }
     }
 
-    val degreeGraph = jourGraphWithDegrees.outerJoinVertices(jourGraphWithDegrees.inDegrees) {
-      (jid, j, inDegOpt) => JournalWithDegrees(j.jid, j.journalName, inDegOpt.getOrElse(0), j.outDeg, j.pr)
-    }.outerJoinVertices(jourGraphWithDegrees.outDegrees) {
-      (jid, j, outDegOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, outDegOpt.getOrElse(0), j.pr)
-    }.outerJoinVertices(jourGraphWithDegrees.pageRank(0.0001).vertices) {
-      (jid, j, prOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, j.outDeg, prOpt.getOrElse(0))
-    }
+    //    drawGraph(degreeGraph)
 
-    degreeGraph.vertices.foreach(println)
-
-    val result = degreeGraph.vertices.filter {
-      case (jid, jv) => (jv.journalName.equals("J3"))
-    }.first
-
-    val result2 = degreeGraph.collectNeighbors(EdgeDirection.Out).lookup(result._1)
-    println("after filter:")
-
-    result2.map(x => x.foreach(y => println(y._2)))
-
+    publicationsRdd.unpersist()
     sc.stop()
     println("end")
   }
 
-  def getJournalGraph(lines: RDD[String], publicationRdd: RDD[Publication]) = {
+  def prfmChkPblctns(prop: Properties, sc: SparkContext, publicationsRdd: RDD[Publication], testPrintMode: String): Unit = {
+    val pblctnDgrGrph = getPublicationGraph(sc, publicationsRdd)
+    val tstPblctnSze = prop.getProperty("test.publication.size").toInt
+    val pblctnSmpls = sc.broadcast(pblctnDgrGrph.vertices.sortBy(_._2.pr, false).take(tstPblctnSze).drop(1))
+
+    //    println("printing the sample publication names:")
+    //    journalSamples.foreach(println)
+
+    println("Querying for top " + tstPblctnSze + " publications with highest pagerank:")
+
+    if (testPrintMode.equals("true")) {
+      pblctnSmpls.value.foreach {
+        srchPblctn =>
+          val timedResult = time {
+            println("Retrieving influential publications for: " + srchPblctn._2.publicationName)
+            pblctnDgrGrph.collectNeighbors(EdgeDirection.In).lookup((pblctnDgrGrph.vertices.filter {
+              publication => (publication._2.publicationName.equals(srchPblctn._2.publicationName))
+            }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr).foreach(publication => println(publication._2)))
+          }
+          //        println("Time taken :" +{timedResult.durationInNanoSeconds})
+          println(timedResult.durationInNanoSeconds.toMillis + ",")
+      }
+    } else {
+      pblctnSmpls.value.foreach {
+        srchPblctn =>
+          val timedResult = time {
+            //            println("Retrieving influential journals for: " + srchPblctn._2.publicationName)
+            pblctnDgrGrph.collectNeighbors(EdgeDirection.In).lookup((pblctnDgrGrph.vertices.filter {
+              publication => (publication._2.publicationName.equals(srchPblctn._2.publicationName))
+            }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr))
+          }
+          //        println("Time taken :" +{timedResult.durationInNanoSeconds})
+          println(timedResult.durationInNanoSeconds.toMillis + ",")
+      }
+    }
+  }
+
+  def prfmChkJrnls(prop: Properties, sc: SparkContext, publicationsRdd: RDD[Publication], testPrintMode: String): Unit = {
+    val jrnlDgrGrph = getJournalGraph(sc, publicationsRdd)
+    val tstJrnlSze = prop.getProperty("test.journal.size").toInt
+    val journalSamples = sc.broadcast(jrnlDgrGrph.vertices.sortBy(_._2.pr, false).take(tstJrnlSze).drop(1))
+
+    //    println("printing the sample journal names:")
+    //    journalSamples.foreach(println)
+
+    println("Querying for top " + tstJrnlSze + " journals with highest pagerank:")
+
+    if (testPrintMode.equals("true")) {
+      journalSamples.value.foreach {
+        searchJournal =>
+          val timedResult = time {
+            println("Retrieving influential journals for: " + searchJournal._2.journalName)
+            jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
+              journal => (journal._2.journalName.equals(searchJournal._2.journalName))
+            }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println(journal._2)))
+          }
+          //        println("Time taken :" +{timedResult.durationInNanoSeconds})
+          println(timedResult.durationInNanoSeconds.toMillis + ",")
+      }
+    } else {
+      journalSamples.value.foreach {
+        searchJournal =>
+          val timedResult = time {
+            jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
+              journal => (journal._2.journalName.equals(searchJournal._2.journalName))
+            }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr))
+          }
+          //        println("Time taken :" +{timedResult.durationInNanoSeconds})
+          println(timedResult.durationInNanoSeconds.toMillis + ",")
+      }
+    }
+  }
+
+  def getJournalGraph(sc: SparkContext, publicationsRdd: RDD[Publication]) = {
 
     //    create journal RDD vertices with publications
-    val publicationGroups = publicationRdd.groupBy(publication => publication.journalName)
-    //    val journalVertices: Unit = journalRdd.foreach(publicationGroup => Journal(publicationGroup._1,publicationGroup._2.toList))
-    val journalRDD: RDD[Journal] = publicationGroups.map(x => Journal(x._1, x._2.toList)).distinct
+    val publicationsRdd_nonempty = publicationsRdd.filter(publication => publication.journalName != "")
+    val publicationGroups = publicationsRdd_nonempty.groupBy(publication => publication.journalName)
+    val journalRDD: RDD[Journal] = publicationGroups.map(publication => Journal(publication._1, publication._2.toList)).distinct
 
     println("creating journal vertices...")
     val journalWithIndex = journalRDD.zipWithIndex()
     val journalVertices = journalWithIndex.map { case (k, v) => (v, k) }
+
     val journalVertices2 = journalVertices.map {
       case (k, v) => (k, v.journalName)
     }
-    val journalVertices3 = journalVertices2.map { case (k, v) => (v, k) }
 
-    val journalPublicDict = journalVertices.flatMap {
+    val journalPublicDict = sc.broadcast(journalVertices.flatMap {
       case (jid, journal) =>
         journal.publications.map(p => (p.id, jid))
-    }.collectAsMap()
+    }.collectAsMap())
 
-    //    val journalVertices = journalRDD.map(journal => (hex2dec(journal.journalName).toLong, journal.publications)).distinct
-    //    val journalVertices = journalRDD.map(journal => (withIndex.filter(x => x._1.equals(journal)))).distinct
     println("journal vertices created!")
 
     val nocitation = "nocitation"
 
-    val testEdges = journalVertices.flatMap {
+    val jrnlEdgsWthDplcts1 = journalVertices.flatMap {
       case (jid, journal) =>
         journal.publications.flatMap(
           publication => publication.outCitations.map(
             outCitation => (jid,
-              journalPublicDict.getOrElse(outCitation, -1.toLong)
+              journalPublicDict.value.getOrElse(outCitation, -1.toLong)
               , 1)))
     }
 
-    val testEdges2 = testEdges.filter(te => te._1 != te._2).filter(te => te._2 != -1)
+    val jrnlEdgsWthDplcts2 = jrnlEdgsWthDplcts1.filter(dupEdgs1 => dupEdgs1._1 != dupEdgs1._2).filter(dupEdgs1 => dupEdgs1._2 != -1)
 
     val zeroVal = 0
     val addToCounts = (acc: Int, ele: Int) => (acc + ele)
     val sumPartitionCounts = (acc1: Int, acc2: Int) => (acc1 + acc2)
 
     println("creating journal edges...")
-    val journalEdges = testEdges2.map(te2 => ((te2._1, te2._2), te2._3)).aggregateByKey(0)(addToCounts, sumPartitionCounts).map(x => Edge(x._1._1, x._1._2, x._2))
+    val journalEdges = jrnlEdgsWthDplcts2.map(dupEdgs2 => ((dupEdgs2._1, dupEdgs2._2), dupEdgs2._3)).aggregateByKey(0)(addToCounts, sumPartitionCounts).map(unqEdgs => Edge(unqEdgs._1._1, unqEdgs._1._2, unqEdgs._2))
     println("journal edges created!")
 
-    Graph(journalVertices2, journalEdges, nocitation)
+    println("creating journal graph with degrees...")
+    //    creating journal graph with degrees
+    val JournalGraph = Graph(journalVertices2, journalEdges, nocitation).mapVertices {
+      case (jid, jname) =>
+        JournalWithDegrees(jid, jname, 0, 0, 0.0)
+    }
+
+    val inDegrees = JournalGraph.inDegrees
+    val outDegrees = JournalGraph.outDegrees
+    val pageRank = JournalGraph.pageRank(0.0001).vertices
+    val jrnlDgrGrph: Graph[JournalWithDegrees, Int] = JournalGraph.outerJoinVertices(inDegrees) {
+      (jid, j, inDegOpt) => JournalWithDegrees(j.jid, j.journalName, inDegOpt.getOrElse(0), j.outDeg, j.pr)
+    }.outerJoinVertices(outDegrees) {
+      (jid, j, outDegOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, outDegOpt.getOrElse(0), j.pr)
+    }.outerJoinVertices(pageRank) {
+      (jid, j, prOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, j.outDeg, prOpt.getOrElse(0))
+    }
+
+    println("journal graph with degrees and page rank added")
+    jrnlDgrGrph.cache()
+  }
+
+  //  function to identify the time taken
+  def time[R](block: => R): TimedResult[R] = {
+    val t0 = System.nanoTime()
+    val result = block
+    val t1 = System.nanoTime()
+    val duration = t1 - t0
+    TimedResult(result, duration nanoseconds)
   }
 
   //  define the method to get publication graph
-  def getPublicationGraph(lines: RDD[String], publicationRdd: RDD[Publication]): Graph[String, Int] = {
+  def getPublicationGraph(sc: SparkContext, publicationsRdd: RDD[Publication]): Graph[PublicationWithDegrees, Int] = {
 
-    //    println(s"Number of entries in publicationRdd is ${publicationRdd.count()}")
-    //    printing the values of the publications
-    //    publicationRdd.foreach(x => println(x.outCitations))
+    val pblctnsWthIndxRdd = publicationsRdd.zipWithIndex().map { case (k, v) => (v, k) }
+
+    val pblctnIdDict = sc.broadcast(pblctnsWthIndxRdd.map(p => (p._2.id, p._1)).collectAsMap())
 
     //    create publication RDD vertices with ID and Name
     println("creating publication vertices...")
-    val publicationVertices: RDD[(Long, String)] = publicationRdd.map(publication => (hex2dec(publication.id).toLong, publication.journalName)).distinct
+    val publicationVertices: RDD[(Long, String)] = publicationsRdd.map(publication => (pblctnIdDict.value.getOrElse(publication.id, -1.toLong), publication.title)).distinct
     println("publication vertices created!")
-
-    //    println(s"Number of entries in publicationVerticesRDD is ${publicationVertices.count()}") //1000000
-    //    printing the values of the vertex
-    //    publicationVertices.foreach(x => println(x._1))
 
     //     Defining a default vertex called nocitation
     val nocitation = "nocitation"
 
-    ////      Map publication ID to the publication name to be printed
-    //        val publicationVertexMap = publicationVertices.map(publication =>{
-    //          case (publication._1, name) =>
-    //            publication._1 -> name
-    //        }).collect.toList.toMap
-
-    //    Creating edges with outCitations and inCitations
     println("creating citations...")
-    val citations = publicationRdd.map(publication => ((hex2dec(publication.id).toLong, publication.outCitations), 1)).distinct
+    val citations = publicationsRdd.map(publication => ((pblctnIdDict.value.getOrElse(publication.id, -1.toLong), publication.outCitations), 1)).distinct
     println("citations created!")
 
-    //    println(s"Number of entries in citationsRDD is ${citations.count()}") //1000000
-    //    printing citation values
-    //    citations.foreach(x => println(x._1,x._2))
-    //    println("creating citation edges...")
-    //    creating citation edges with outCitations and inCitations
-    //    val citationEdges= citations.map{
-    //      case(id,outCitations) => for(outCitation <- outCitations){
-    //        val longOutCit = hex2dec(outCitation).toLong
-    ////        println(id,longOutCit)
-    //        Edge(id,hex2dec(outCitation).toLong)
-    //      }
-    //    }
-
-    println("creating citation edges with outCitations and inCitations")
+    println("creating citation edges with outCitations and inCitations...")
     //    creating citation edges with outCitations and inCitations
     val citationEdges = citations.flatMap {
       case ((id, outCitations), num) =>
-        outCitations.map(outCitation => Edge(id, hex2dec(outCitation).toLong, num))
+        outCitations.map(outCitation => Edge(id, pblctnIdDict.value.getOrElse(outCitation, -1.toLong), num))
     }
     println("citation edges created!")
 
-    //    println(s"Number of entries in citationEdges is ${citationEdges.count()}")
-    //    val citationEdges= citations.map{ case(id,outCitations) => outCitations.foreach(outCitation => Edge(id,hex2dec(outCitation).toLong))}}
-    //    val citationEdges = citations.map {
-    //    case (id, outCitations) =>Edge(org_id.toLong, dest_id.toLong, distance) }
-    //    println(s"Number of entries in citationEdgesRDD is ${citationEdges.count()}")
-    //    println(s"${citationEdges.take(10).foreach(println)}")
-    //    citationEdges.foreach(println)
+    println("creating publication graph with degrees...")
+    //    creating publication graph with degrees
+    val publicationGraph = Graph(publicationVertices, citationEdges, nocitation).mapVertices {
+      case (pid, pname) =>
+        PublicationWithDegrees(pid, pname, 0, 0, 0.0)
+    }
 
-    println("creating publicationgraph...")
-    //    creating publication graph
-    Graph(publicationVertices, citationEdges, nocitation)
+    val inDegrees = publicationGraph.inDegrees
+    val outDegrees = publicationGraph.outDegrees
+    val pageRank = publicationGraph.pageRank(0.0001).vertices
+
+    val pblctnDgrGrph: Graph[PublicationWithDegrees, Int] = publicationGraph.outerJoinVertices(inDegrees) {
+      (pid, p, inDegOpt) => PublicationWithDegrees(p.id, p.publicationName, inDegOpt.getOrElse(0), p.outDeg, p.pr)
+    }.outerJoinVertices(outDegrees) {
+      (pid, p, outDegOpt) => PublicationWithDegrees(p.id, p.publicationName, p.inDeg, outDegOpt.getOrElse(0), p.pr)
+    }.outerJoinVertices(pageRank) {
+      (pid, p, prOpt) => PublicationWithDegrees(p.id, p.publicationName, p.inDeg, p.outDeg, prOpt.getOrElse(0))
+    }
+
+    println("publication graph with degrees and page rank added")
+    pblctnDgrGrph.cache()
   }
-
-  //  define the method to convert string to BigInt
-  def hex2dec(hex: String): BigInt = {
-    hex.toLowerCase().toList.map(
-      "0123456789abcdef".indexOf(_)).map(
-      BigInt(_)).reduceLeft(_ * 16 + _)
-  }
-
-  case class JournalWithDegrees(
-                                 jid: VertexId,
-                                 journalName: String,
-                                 inDeg: Int,
-                                 outDeg: Int,
-                                 pr: Double
-                               )
 
   //  define the journal schema
   case class Journal(
@@ -344,10 +415,30 @@ return "translate(" + d.x + "," + d.y + ")";
                           doiUrl: String,
                           venue: String)
 
+  //  define the journal graph schema with degrees
+  case class JournalWithDegrees(
+                                 jid: VertexId,
+                                 journalName: String,
+                                 inDeg: Int,
+                                 outDeg: Int,
+                                 pr: Double
+                               )
+
+  //  define the publication graph schema with degrees
+  case class PublicationWithDegrees(
+                                     id: VertexId,
+                                     publicationName: String,
+                                     inDeg: Int,
+                                     outDeg: Int,
+                                     pr: Double
+                                   )
+
   //  define the author schema
   case class Authors(
                       name: String,
                       ids: List[String]
                     )
+
+  case class TimedResult[R](result: R, durationInNanoSeconds: FiniteDuration)
 
 }

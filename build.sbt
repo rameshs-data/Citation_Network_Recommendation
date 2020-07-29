@@ -17,6 +17,11 @@ libraryDependencies ++= Seq(
   "net.liftweb" %% "lift-json" % "3.4.1"
 )
 
+//libraryDependencies ++= Seq(
+//  "org.scala-js" %%% "scalajs-dom" % "0.9.1",
+//  "com.lihaoyi" %%% "scalatags" % "0.6.1"
+//)
+
 //assemblyMergeStrategy in assembly := {
 // case PathList("META-INF", xs @ _*) => MergeStrategy.discard
 // case x => MergeStrategy.first
