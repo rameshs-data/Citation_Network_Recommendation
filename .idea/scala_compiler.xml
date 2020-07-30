@@ -4,6 +4,8 @@
     <profile name="sbt 1" modules="cna">
       <option name="implicitConversions" value="true" />
     </profile>
-    <profile name="sbt 2" modules="CNA" />
+    <profile name="sbt 2" modules="CNA">
+      <option name="postfixOps" value="true" />
+    </profile>
   </component>
 </project>

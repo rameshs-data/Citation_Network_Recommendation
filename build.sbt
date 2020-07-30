@@ -17,6 +17,9 @@ libraryDependencies ++= Seq(
   "net.liftweb" %% "lift-json" % "3.4.1"
 )
 
+// https://mvnrepository.com/artifact/ch.cern.sparkmeasure/spark-measure
+libraryDependencies += "ch.cern.sparkmeasure" %% "spark-measure" % "0.16"
+
 //libraryDependencies ++= Seq(
 //  "org.scala-js" %%% "scalajs-dom" % "0.9.1",
 //  "com.lihaoyi" %%% "scalatags" % "0.6.1"
