@@ -20,6 +20,8 @@ libraryDependencies ++= Seq(
 // https://mvnrepository.com/artifact/ch.cern.sparkmeasure/spark-measure
 libraryDependencies += "ch.cern.sparkmeasure" %% "spark-measure" % "0.16"
 
+libraryDependencies += "org.apache.logging.log4j" %% "log4j-api-scala" % "11.0"
+
 //libraryDependencies ++= Seq(
 //  "org.scala-js" %%% "scalajs-dom" % "0.9.1",
 //  "com.lihaoyi" %%% "scalatags" % "0.6.1"

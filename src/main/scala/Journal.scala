@@ -1,4 +1,6 @@
 import java.util.Properties
+import org.apache.log4j.{LogManager, Logger}
+
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Edge, EdgeDirection, Graph, VertexId}
 import org.apache.spark.rdd.RDD
@@ -19,6 +21,43 @@ case class JournalWithDegrees(
                              )
 
 object Journal {
+
+  def prfmChkJrnls(prop: Properties, sc: SparkContext, publicationsRdd: RDD[Publication], testPrintMode: String, taskMetrics: ch.cern.sparkmeasure.TaskMetrics): Unit = {
+
+    val jrnlDgrGrph = getJournalGraph(sc, publicationsRdd)
+    val tstJrnlSze = prop.getProperty("test.journal.size").toInt
+    val journalSamples = jrnlDgrGrph.vertices.sortBy(_._2.pr, false).take(tstJrnlSze)
+
+    //    println("printing the sample journal names:")
+    //    journalSamples.foreach(println)
+
+    println("Querying for top " + tstJrnlSze + " journals with highest pagerank:")
+    taskMetrics.runAndMeasure(if (testPrintMode.equals("true")) {
+      journalSamples.foreach {
+        searchJournal =>
+          val timedResult = Utils.time {
+            println("Retrieving influential journals for: " + searchJournal._2.journalName)
+            jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
+              journal => (journal._2.journalName.equals(searchJournal._2.journalName))
+            }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println(journal._2)))
+          }
+          //        println("Time taken :" +{timedResult.durationInNanoSeconds})
+          println(timedResult.durationInNanoSeconds.toMillis + ",")
+      }
+    } else {
+      journalSamples.foreach {
+        searchJournal =>
+          val timedResult = Utils.time {
+            jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
+              journal => (journal._2.journalName.equals(searchJournal._2.journalName))
+            }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr))
+          }
+          //        println("Time taken :" +{timedResult.durationInNanoSeconds})
+          println(timedResult.durationInNanoSeconds.toMillis + ",")
+      }
+    })
+  }
+
   def getJournalGraph(sc: SparkContext, publicationsRdd: RDD[Publication]) = {
 
     //    create journal RDD vertices with publications
@@ -62,9 +101,11 @@ object Journal {
     val journalEdges = jrnlEdgsWthDplcts2.map(dupEdgs2 => ((dupEdgs2._1, dupEdgs2._2), dupEdgs2._3)).aggregateByKey(0)(addToCounts, sumPartitionCounts).map(unqEdgs => Edge(unqEdgs._1._1, unqEdgs._1._2, unqEdgs._2))
     println("journal edges created!")
 
+    val jrnlGrphWthotDgrs = Graph(journalVertices2, journalEdges, nocitation)
+
     println("creating journal graph with degrees...")
     //    creating journal graph with degrees
-    val JournalGraph = Graph(journalVertices2, journalEdges, nocitation).mapVertices {
+    val JournalGraph = jrnlGrphWthotDgrs.mapVertices {
       case (jid, jname) =>
         JournalWithDegrees(jid, jname, 0, 0, 0.0)
     }
@@ -72,6 +113,7 @@ object Journal {
     val inDegrees = JournalGraph.inDegrees
     val outDegrees = JournalGraph.outDegrees
     val pageRank = JournalGraph.pageRank(0.0001).vertices
+
     val jrnlDgrGrph: Graph[JournalWithDegrees, Int] = JournalGraph.outerJoinVertices(inDegrees) {
       (jid, j, inDegOpt) => JournalWithDegrees(j.jid, j.journalName, inDegOpt.getOrElse(0), j.outDeg, j.pr)
     }.outerJoinVertices(outDegrees) {
@@ -80,43 +122,42 @@ object Journal {
       (jid, j, prOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, j.outDeg, prOpt.getOrElse(0))
     }
 
+    prntJtnlGrphSmry(jrnlGrphWthotDgrs)
+
     println("journal graph with degrees and page rank added")
     jrnlDgrGrph.cache()
   }
 
-  def prfmChkJrnls(prop: Properties, sc: SparkContext, publicationsRdd: RDD[Publication], testPrintMode: String): Unit = {
-    val jrnlDgrGrph = getJournalGraph(sc, publicationsRdd)
-    val tstJrnlSze = prop.getProperty("test.journal.size").toInt
-    val journalSamples = jrnlDgrGrph.vertices.sortBy(_._2.pr, false).take(tstJrnlSze)
+  def prntJtnlGrphSmry(jrnlGrphWthotDgr: Graph[String, Int]): Unit = {
 
-    //    println("printing the sample journal names:")
-    //    journalSamples.foreach(println)
+    val vrtcsCnt = jrnlGrphWthotDgr.vertices.count
+    val edgsCnt = jrnlGrphWthotDgr.edges.count
+    val inDegrees = jrnlGrphWthotDgr.inDegrees
+    val outDegrees = jrnlGrphWthotDgr.outDegrees
+    val maxInDegree = inDegrees.reduce(Utils.max)
+    val maxOutDegree = outDegrees.reduce(Utils.max)
+    val maxDegrees = jrnlGrphWthotDgr.degrees.reduce(Utils.max)
 
-    println("Querying for top " + tstJrnlSze + " journals with highest pagerank:")
+    val pageRank = jrnlGrphWthotDgr.pageRank(0.0001).vertices.distinct
+    val pageRankList = pageRank.map(_._2).distinct
 
-    if (testPrintMode.equals("true")) {
-      journalSamples.foreach {
-        searchJournal =>
-          val timedResult = Utils.time {
-            println("Retrieving influential journals for: " + searchJournal._2.journalName)
-            jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
-              journal => (journal._2.journalName.equals(searchJournal._2.journalName))
-            }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println(journal._2)))
-          }
-          //        println("Time taken :" +{timedResult.durationInNanoSeconds})
-          println(timedResult.durationInNanoSeconds.toMillis + ",")
-      }
-    } else {
-      journalSamples.foreach {
-        searchJournal =>
-          val timedResult = Utils.time {
-            jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
-              journal => (journal._2.journalName.equals(searchJournal._2.journalName))
-            }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr))
-          }
-          //        println("Time taken :" +{timedResult.durationInNanoSeconds})
-          println(timedResult.durationInNanoSeconds.toMillis + ",")
-      }
-    }
+    Utils.prntSbHdngLne("Printing Publication Graph Summary")
+    println("No. of publications:" + vrtcsCnt)
+    println("No. of citations:" + edgsCnt)
+
+    println("No. of in degrees:" + inDegrees.count)
+    println("No. of out degrees:" + outDegrees.count)
+
+    println("Highest in degree vertex:" + maxInDegree)
+    println("Highest out degree vertex:" + maxOutDegree)
+    println("Highest degree vertex:" + maxDegrees)
+
+    println("Total unique page rank values found:" + pageRankList.count)
+    println("Maximum Page rank:" + pageRankList.max)
+    println("Minimum Page rank:" + pageRankList.min)
+
+    println("Printing page rank values:")
+    pageRankList.foreach(println)
+    Utils.prntSbHdngEndLne()
   }
 }
