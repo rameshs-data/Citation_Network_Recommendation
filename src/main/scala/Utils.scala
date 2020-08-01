@@ -15,9 +15,9 @@ object Utils {
     try {
       val prop = new Properties()
       if (System.getenv("PATH").contains("Windows")) {
-        prop.load(new FileInputStream("application-local.properties"))
+        prop.load(new FileInputStream("src/main/resources/application-local.properties"))
       } else if (System.getenv("PATH").contains("ichec")) {
-        prop.load(new FileInputStream("application-ichec.properties"))
+        prop.load(new FileInputStream("src/main/resources/application-ichec.properties"))
       } else {
         println("Issue identifying the environment, PATH is:", System.getenv("PATH"))
       }
@@ -29,6 +29,11 @@ object Utils {
     }
   }
 
+  def hex2dec(hex: String): BigInt = {
+    hex.toLowerCase().toList.map(
+      "0123456789abcdef".indexOf(_)).map(
+      BigInt(_)).reduceLeft( _ * 16 + _)
+  }
   //  method to print task metrics
   def prntGrphTstMtrcs(spark: SparkSession): Unit = {
     println("Looking for metrics tables...")

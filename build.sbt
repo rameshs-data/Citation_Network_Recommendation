@@ -17,7 +17,6 @@ libraryDependencies ++= Seq(
   "net.liftweb" %% "lift-json" % "3.4.1"
 )
 
-// https://mvnrepository.com/artifact/ch.cern.sparkmeasure/spark-measure
 libraryDependencies += "ch.cern.sparkmeasure" %% "spark-measure" % "0.16"
 
 libraryDependencies += "org.apache.logging.log4j" %% "log4j-api-scala" % "11.0"

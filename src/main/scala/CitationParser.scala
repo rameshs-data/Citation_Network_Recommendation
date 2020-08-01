@@ -1,14 +1,12 @@
 import net.liftweb.json.{DefaultFormats, _}
-import org.apache.log4j.Logger
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 
 object CitationParser {
-  val log = Logger.getLogger(this.getClass.getName)
 
   def main(args: Array[String]): Unit = {
-    log.info("Logger : Welcome to log4j")
+
     //    Getting the properties for the environment
     val prop = Utils.getProperties()
     //    checking for test flags
@@ -37,7 +35,7 @@ object CitationParser {
     sc.setLogLevel("ERROR")
 
     //    Reading file to RDD
-    log.info("Reading Input...")
+    println("Reading Input...")
     val lines_orig = sc.textFile(prop.getProperty("file.path")) //spark context code
     //    val lines_orig = spark.read.text(prop.getProperty("file.path"))
     val lines = lines_orig.sample(false, prop.getProperty("sample.size").toDouble, 2)
@@ -90,7 +88,7 @@ object CitationParser {
             input match {
               case 1 => {
                 //  Searching for publications
-                val publicationGraph = Publication.getPublicationGraph(sc, publicationsRdd)
+                val pblctnDgrGrph = Publication.getPublicationGraph(sc, publicationsRdd)
 
                 println("Please enter the publication name or X to exit:")
 
@@ -98,11 +96,12 @@ object CitationParser {
                   .takeWhile(_ != "X")
                   .foreach {
                     searchPublication =>
-                      publicationGraph.collectNeighbors(EdgeDirection.In).lookup((publicationGraph.vertices.filter {
+                      pblctnDgrGrph.collectNeighbors(EdgeDirection.In).lookup((pblctnDgrGrph.vertices.filter {
                         journal => (journal._2.publicationName.equals(searchPublication))
                       }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr).foreach(publication => println(publication._2)))
                       println("Please enter the publication name or X to exit:")
                   }
+                //                pblctnDgrGrph.unpersist()
               }
               case 2 => {
                 //  Searching for journal
@@ -119,6 +118,7 @@ object CitationParser {
                       }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println(journal._2)))
                       println("Please enter the journal name or X to exit:")
                   }
+                //                jrnlDgrGrph.unpersist()
               }
               case _ => {
                 println("Invalid Input!")
@@ -131,10 +131,11 @@ object CitationParser {
             print("Enter here:")
         }
     }
+
     //closing cached data
     publicationsRdd.unpersist()
-    sc.stop()
-
+//    sc.stop()
+    spark.close()
     Utils.prntHdngLne("CNA APP CLOSED")
   }
 }

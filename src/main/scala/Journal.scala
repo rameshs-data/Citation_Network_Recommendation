@@ -1,8 +1,7 @@
 import java.util.Properties
-import org.apache.log4j.{LogManager, Logger}
 
 import org.apache.spark.SparkContext
-import org.apache.spark.graphx.{Edge, EdgeDirection, Graph, VertexId}
+import org.apache.spark.graphx.{Edge, EdgeDirection, Graph, VertexId, VertexRDD}
 import org.apache.spark.rdd.RDD
 
 //  define the journal schema
@@ -112,7 +111,11 @@ object Journal {
 
     val inDegrees = JournalGraph.inDegrees
     val outDegrees = JournalGraph.outDegrees
-    val pageRank = JournalGraph.pageRank(0.0001).vertices
+    val pageRankTimed = Utils.time {
+      JournalGraph.pageRank(0.0001).vertices
+    }
+    println("Time taken to generate journal pageranks:"+pageRankTimed.durationInNanoSeconds.toMillis)
+    val pageRank = pageRankTimed.result
 
     val jrnlDgrGrph: Graph[JournalWithDegrees, Int] = JournalGraph.outerJoinVertices(inDegrees) {
       (jid, j, inDegOpt) => JournalWithDegrees(j.jid, j.journalName, inDegOpt.getOrElse(0), j.outDeg, j.pr)
@@ -120,42 +123,38 @@ object Journal {
       (jid, j, outDegOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, outDegOpt.getOrElse(0), j.pr)
     }.outerJoinVertices(pageRank) {
       (jid, j, prOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, j.outDeg, prOpt.getOrElse(0))
-    }
+    }.cache()
 
-    prntJtnlGrphSmry(jrnlGrphWthotDgrs)
+    prntJtnlGrphSmry(jrnlDgrGrph,inDegrees,outDegrees,pageRank)
 
     println("journal graph with degrees and page rank added")
-    jrnlDgrGrph.cache()
+    jrnlDgrGrph
   }
 
-  def prntJtnlGrphSmry(jrnlGrphWthotDgr: Graph[String, Int]): Unit = {
+  //  method to print journal graph summary
+  def prntJtnlGrphSmry(jrnlDgrGrph: Graph[JournalWithDegrees, Int], inDegrees: VertexRDD[Int], outDegrees: VertexRDD[Int], pageRank: VertexRDD[Double]): Unit = {
 
-    val vrtcsCnt = jrnlGrphWthotDgr.vertices.count
-    val edgsCnt = jrnlGrphWthotDgr.edges.count
-    val inDegrees = jrnlGrphWthotDgr.inDegrees
-    val outDegrees = jrnlGrphWthotDgr.outDegrees
-    val maxInDegree = inDegrees.reduce(Utils.max)
-    val maxOutDegree = outDegrees.reduce(Utils.max)
-    val maxDegrees = jrnlGrphWthotDgr.degrees.reduce(Utils.max)
-
-    val pageRank = jrnlGrphWthotDgr.pageRank(0.0001).vertices.distinct
+    val vrtcsCnt = jrnlDgrGrph.vertices.count
+    val edgsCnt = jrnlDgrGrph.edges.count
+    //    val inDegrees = pblctnGrphWthotDgr.inDegrees
+    //    val outDegrees = pblctnGrphWthotDgr.outDegrees
+    //    val maxInDegree = inDegrees.reduce((a, b) => (a._1, a._2 max b._2))
+    //    val maxOutDegree = outDegrees.reduce(Utils.max)
+    //    val maxDegrees = pblctnDgrGrph.degrees.reduce(Utils.max)
+    //    val pageRank = pblctnGrphWthotDgr.pageRank(0.0001).vertices.distinct
     val pageRankList = pageRank.map(_._2).distinct
 
-    Utils.prntSbHdngLne("Printing Publication Graph Summary")
-    println("No. of publications:" + vrtcsCnt)
+    Utils.prntSbHdngLne("Printing Journal Graph Summary")
+    println("No. of journals:" + vrtcsCnt)
     println("No. of citations:" + edgsCnt)
-
     println("No. of in degrees:" + inDegrees.count)
     println("No. of out degrees:" + outDegrees.count)
-
-    println("Highest in degree vertex:" + maxInDegree)
-    println("Highest out degree vertex:" + maxOutDegree)
-    println("Highest degree vertex:" + maxDegrees)
-
+    //    println("Highest in degree vertex:" + maxInDegree)
+    //    println("Highest out degree vertex:" + maxOutDegree)
+    //    println("Highest degree vertex:" + maxDegrees)
     println("Total unique page rank values found:" + pageRankList.count)
     println("Maximum Page rank:" + pageRankList.max)
     println("Minimum Page rank:" + pageRankList.min)
-
     println("Printing page rank values:")
     pageRankList.foreach(println)
     Utils.prntSbHdngEndLne()
