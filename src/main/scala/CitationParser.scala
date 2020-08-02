@@ -42,8 +42,13 @@ object CitationParser {
     println("Reading Input...")
     val lines_orig = sc.textFile(prop.getProperty("file.path")) //spark context code
     //    val lines_orig = spark.read.text(prop.getProperty("file.path"))
-    val lines = lines_orig.sample(false, prop.getProperty("sample.size").toDouble, 2)
+    val lines_sample = lines_orig.sample(false, prop.getProperty("sample.size").toDouble, 2)
     println("Input data loaded!")
+
+    println(lines_sample.partitions.size)
+
+    val repart_size = prop.getProperty("repartition.size").toInt
+    val lines = lines_sample.repartition(repart_size)
 
     //    printing the number of records
     println(s"Number of entries in input data is ${lines.count()}")
