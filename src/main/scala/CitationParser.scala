@@ -1,4 +1,6 @@
 import net.liftweb.json.{DefaultFormats, _}
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.FileSystem
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
@@ -42,13 +44,15 @@ object CitationParser {
     println("Reading Input...")
     val lines_orig = sc.textFile(prop.getProperty("file.path")) //spark context code
     //    val lines_orig = spark.read.text(prop.getProperty("file.path"))
+
+    println("Initial paritition size:" + lines_orig.partitions.size)
     val lines_sample = lines_orig.sample(false, prop.getProperty("sample.size").toDouble, 2)
     println("Input data loaded!")
 
-    println(lines_sample.partitions.size)
+    println("Sample paritition size:" + lines_sample.partitions.size)
 
     val repart_size = prop.getProperty("repartition.size").toInt
-    val lines = lines_sample.repartition(repart_size)
+    val lines = lines_sample.coalesce(repart_size)
 
     //    printing the number of records
     println(s"Number of entries in input data is ${lines.count()}")
