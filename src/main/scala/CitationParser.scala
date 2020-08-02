@@ -52,7 +52,7 @@ object CitationParser {
     println("Sample paritition size:" + lines_sample.partitions.size)
 
     val repart_size = prop.getProperty("repartition.size").toInt
-    val lines = lines_sample.coalesce(repart_size)
+    val lines = lines_sample.repartition(repart_size)
 
     //    printing the number of records
     println(s"Number of entries in input data is ${lines.count()}")
