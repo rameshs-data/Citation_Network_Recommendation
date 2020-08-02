@@ -102,6 +102,14 @@ object Journal {
 
     val jrnlGrphWthotDgrs = Graph(journalVertices2, journalEdges, nocitation)
 
+    val inDegrees = jrnlGrphWthotDgrs.inDegrees
+    val outDegrees = jrnlGrphWthotDgrs.outDegrees
+    val pageRankTimed = Utils.time {
+      jrnlGrphWthotDgrs.pageRank(0.0001).vertices
+    }
+    println("Time taken to generate journal pageranks:"+pageRankTimed.durationInNanoSeconds.toMillis)
+    val pageRank = pageRankTimed.result
+
     println("creating journal graph with degrees...")
     //    creating journal graph with degrees
     val JournalGraph = jrnlGrphWthotDgrs.mapVertices {
@@ -109,33 +117,25 @@ object Journal {
         JournalWithDegrees(jid, jname, 0, 0, 0.0)
     }
 
-    val inDegrees = JournalGraph.inDegrees
-    val outDegrees = JournalGraph.outDegrees
-    val pageRankTimed = Utils.time {
-      JournalGraph.pageRank(0.0001).vertices
-    }
-    println("Time taken to generate journal pageranks:"+pageRankTimed.durationInNanoSeconds.toMillis)
-    val pageRank = pageRankTimed.result
-
     val jrnlDgrGrph: Graph[JournalWithDegrees, Int] = JournalGraph.outerJoinVertices(inDegrees) {
-      (jid, j, inDegOpt) => JournalWithDegrees(j.jid, j.journalName, inDegOpt.getOrElse(0), j.outDeg, j.pr)
+      (jid, j, inDegOpt) => JournalWithDegrees(jid, j.journalName, inDegOpt.getOrElse(0), j.outDeg, j.pr)
     }.outerJoinVertices(outDegrees) {
-      (jid, j, outDegOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, outDegOpt.getOrElse(0), j.pr)
+      (jid, j, outDegOpt) => JournalWithDegrees(jid, j.journalName, j.inDeg, outDegOpt.getOrElse(0), j.pr)
     }.outerJoinVertices(pageRank) {
-      (jid, j, prOpt) => JournalWithDegrees(j.jid, j.journalName, j.inDeg, j.outDeg, prOpt.getOrElse(0))
-    }.cache()
+      (jid, j, prOpt) => JournalWithDegrees(jid, j.journalName, j.inDeg, j.outDeg, prOpt.getOrElse(0))
+    }
 
-    prntJtnlGrphSmry(jrnlDgrGrph,inDegrees,outDegrees,pageRank)
+    prntJtnlGrphSmry(jrnlGrphWthotDgrs,inDegrees,outDegrees,pageRank)
 
     println("journal graph with degrees and page rank added")
-    jrnlDgrGrph
+    jrnlDgrGrph.cache()
   }
 
   //  method to print journal graph summary
-  def prntJtnlGrphSmry(jrnlDgrGrph: Graph[JournalWithDegrees, Int], inDegrees: VertexRDD[Int], outDegrees: VertexRDD[Int], pageRank: VertexRDD[Double]): Unit = {
+  def prntJtnlGrphSmry(jrnlGrphWthotDgrs: Graph[String, Int], inDegrees: VertexRDD[Int], outDegrees: VertexRDD[Int], pageRank: VertexRDD[Double]): Unit = {
 
-    val vrtcsCnt = jrnlDgrGrph.vertices.count
-    val edgsCnt = jrnlDgrGrph.edges.count
+    val vrtcsCnt = jrnlGrphWthotDgrs.vertices.count
+    val edgsCnt = jrnlGrphWthotDgrs.edges.count
     //    val inDegrees = pblctnGrphWthotDgr.inDegrees
     //    val outDegrees = pblctnGrphWthotDgr.outDegrees
     //    val maxInDegree = inDegrees.reduce((a, b) => (a._1, a._2 max b._2))

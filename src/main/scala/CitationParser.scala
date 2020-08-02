@@ -23,11 +23,15 @@ object CitationParser {
       SparkSession
         .builder()
         .master("local[*]")
+        .config("spark.executor.extraJavaOptions", "-XX:+UseG1GC -XX:+UnlockDiagnosticVMOptions -XX:+G1SummarizeConcMark -XX:InitiatingHeapOccupancyPercent=35 -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:OnOutOfMemoryError='kill -9 %p'")
+        .config("spark.driver.extraJavaOptions", "-XX:+UseG1GC -XX:+UnlockDiagnosticVMOptions -XX:+G1SummarizeConcMark -XX:InitiatingHeapOccupancyPercent=35 -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:OnOutOfMemoryError='kill -9 %p'")
         .appName("Citation")
         .getOrCreate()
     } else {
       SparkSession
         .builder()
+        .config("spark.executor.extraJavaOptions", "-XX:+UseG1GC -XX:+UnlockDiagnosticVMOptions -XX:+G1SummarizeConcMark -XX:InitiatingHeapOccupancyPercent=35 -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:OnOutOfMemoryError='kill -9 %p'")
+        .config("spark.driver.extraJavaOptions", "-XX:+UseG1GC -XX:+UnlockDiagnosticVMOptions -XX:+G1SummarizeConcMark -XX:InitiatingHeapOccupancyPercent=35 -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:OnOutOfMemoryError='kill -9 %p'")
         .appName("Citation")
         .getOrCreate()
     }
@@ -101,7 +105,7 @@ object CitationParser {
                       }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr).foreach(publication => println(publication._2)))
                       println("Please enter the publication name or X to exit:")
                   }
-                //                pblctnDgrGrph.unpersist()
+                pblctnDgrGrph.unpersist()
               }
               case 2 => {
                 //  Searching for journal
@@ -118,7 +122,7 @@ object CitationParser {
                       }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println(journal._2)))
                       println("Please enter the journal name or X to exit:")
                   }
-                //                jrnlDgrGrph.unpersist()
+                jrnlDgrGrph.unpersist()
               }
               case _ => {
                 println("Invalid Input!")
@@ -134,7 +138,7 @@ object CitationParser {
 
     //closing cached data
     publicationsRdd.unpersist()
-//    sc.stop()
+    //    sc.stop()
     spark.close()
     Utils.prntHdngLne("CNA APP CLOSED")
   }

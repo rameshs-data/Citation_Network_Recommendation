@@ -79,7 +79,7 @@ object Publication {
   //  define the method to get publication graph
   def getPublicationGraph(sc: SparkContext, publicationsRdd: RDD[Publication]): Graph[PublicationWithDegrees, Int] = {
 
-    val pblctnsWthIndxRdd = publicationsRdd.zipWithIndex().map { case (k, v) => (v, k) }
+    val pblctnsWthIndxRdd = publicationsRdd.sortBy(_.id).zipWithIndex().map { case (k, v) => (v, k) }
     val pblctnIdDict = sc.broadcast(pblctnsWthIndxRdd.map(p => (p._2.id, p._1)).collectAsMap())
 
     //    create publication RDD vertices with ID and Name
@@ -106,24 +106,24 @@ object Publication {
 
     val pblctnGrphWthotDgr = Graph(publicationVertices, citationEdges, nocitation)
 
-    println("creating publication graph with degrees...")
+    val inDegrees = pblctnGrphWthotDgr.inDegrees
+    val outDegrees = pblctnGrphWthotDgr.outDegrees
 
+    println("creating page rank...")
+    val pageRankTimed = Utils.time {
+      pblctnGrphWthotDgr.pageRank(0.0001).vertices
+    }
+    println("Time taken to generate publication pageranks:"+pageRankTimed.durationInNanoSeconds.toMillis)
+    val pageRank = pageRankTimed.result
+
+    println("page rank created!")
+
+    println("creating publication graph with degrees...")
     //    creating publication graph with degrees
     val publicationGraph = pblctnGrphWthotDgr.mapVertices {
       case (pid, pname) =>
         PublicationWithDegrees(pid, pname, 0, 0, 0.0)
     }
-
-    val inDegrees = publicationGraph.inDegrees
-    val outDegrees = publicationGraph.outDegrees
-
-    println("creating page rank...")
-    val pageRankTimed = Utils.time {
-      publicationGraph.pageRank(0.0001).vertices
-    }
-    println("Time taken to generate journal pageranks:"+pageRankTimed.durationInNanoSeconds.toMillis)
-    val pageRank = pageRankTimed.result
-    println("page rank created!")
 
     println("Adding degrees and pagerank to graph")
     val pblctnDgrGrph: Graph[PublicationWithDegrees, Int] = publicationGraph.outerJoinVertices(inDegrees) {
@@ -132,20 +132,21 @@ object Publication {
       (pid, p, outDegOpt) => PublicationWithDegrees(pid, p.publicationName, p.inDeg, outDegOpt.getOrElse(0), p.pr)
     }.outerJoinVertices(pageRank) {
       (pid, p, prOpt) => PublicationWithDegrees(pid, p.publicationName, p.inDeg, p.outDeg, prOpt.getOrElse(0))
-    }
+    }.cache()
     println("Graph with degrees and pagerank created")
+
     //    get publication graph summary
-    prntPblctnGrphSmry(pblctnDgrGrph, inDegrees, outDegrees, pageRank)
+    prntPblctnGrphSmry(pblctnGrphWthotDgr, inDegrees, outDegrees, pageRank)
 
     println("publication graph with degrees and page rank added")
-    pblctnDgrGrph.cache()
+    pblctnDgrGrph
   }
 
   //  method to print publication graph summary
-  def prntPblctnGrphSmry(pblctnDgrGrph: Graph[PublicationWithDegrees, Int], inDegrees: VertexRDD[Int], outDegrees: VertexRDD[Int], pageRankRDD: RDD[(VertexId,Double)]): Unit = {
+  def prntPblctnGrphSmry(pblctnGrphWthotDgr: Graph[String, Int], inDegrees: VertexRDD[Int], outDegrees: VertexRDD[Int], pageRankRDD: RDD[(VertexId,Double)]): Unit = {
 
-    val vrtcsCnt = pblctnDgrGrph.vertices.count
-    val edgsCnt = pblctnDgrGrph.edges.count
+    val vrtcsCnt = pblctnGrphWthotDgr.vertices.count
+    val edgsCnt = pblctnGrphWthotDgr.edges.count
     //    val inDegrees = pblctnGrphWthotDgr.inDegrees
     //    val outDegrees = pblctnGrphWthotDgr.outDegrees
     //    val maxInDegree = inDegrees.reduce((a, b) => (a._1, a._2 max b._2))
@@ -168,7 +169,6 @@ object Publication {
     println("Maximum Page rank:" + pageRank.max)
     println("Minimum Page rank:" + pageRank.min)
     println("Printing page rank values:")
-    pageRank.foreach(println)
     Utils.prntSbHdngEndLne()
   }
 }
