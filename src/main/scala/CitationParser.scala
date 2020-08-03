@@ -101,15 +101,26 @@ object CitationParser {
                 //  Searching for publications
                 val pblctnDgrGrph = Publication.getPublicationGraph(sc, publicationsRdd)
 
-                println("Please enter the publication name or X to exit:")
+                println("Select the below option for old or new publications:")
+                println("1 : To search for a New publications")
+                println("2 : To search for an Old publications")
+                println("3 : To search for both")
+                println("Enter here:")
 
+                val searchMode = scala.io.StdIn.readInt match {
+                  case 1 => EdgeDirection.In
+                  case 2 => EdgeDirection.Out
+                  case 3 => EdgeDirection.Either
+                }
+
+                println("Please enter the publication name or X to exit:")
                 Iterator.continually(scala.io.StdIn.readLine)
                   .takeWhile(_ != "X")
                   .foreach {
                     searchPublication =>
-                      pblctnDgrGrph.collectNeighbors(EdgeDirection.In).lookup((pblctnDgrGrph.vertices.filter {
+                      pblctnDgrGrph.collectNeighbors(searchMode).lookup((pblctnDgrGrph.vertices.filter {
                         journal => (journal._2.publicationName.equals(searchPublication))
-                      }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr).foreach(publication => println(publication._2)))
+                      }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr).foreach(publication => println("Publication connected to the search in order of importance:"+publication._2.publicationName+"\n:pagerank:"+publication._2.pr)))
                       println("Please enter the publication name or X to exit:")
                   }
                 pblctnDgrGrph.unpersist()
@@ -118,15 +129,26 @@ object CitationParser {
                 //  Searching for journal
                 val jrnlDgrGrph = Journal.getJournalGraph(sc, publicationsRdd)
 
+                println("Select the below option for old or new journals:")
+                println("1 : To search for new Journals")
+                println("2 : To search for Old Journals")
+                println("3 : To search for both")
+
+                val searchMode = scala.io.StdIn.readInt match {
+                  case 1 => EdgeDirection.In
+                  case 2 => EdgeDirection.Out
+                  case 3 => EdgeDirection.Either
+                }
+
                 println("Please enter the journal name or X to exit:")
 
                 Iterator.continually(scala.io.StdIn.readLine)
                   .takeWhile(_ != "X")
                   .foreach {
                     searchJournal =>
-                      jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
+                      jrnlDgrGrph.collectNeighbors(searchMode).lookup((jrnlDgrGrph.vertices.filter {
                         journal => (journal._2.journalName.equals(searchJournal))
-                      }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println(journal._2)))
+                      }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println("Journal connected to the search in order of importance:"+journal._2.journalName+"\n:pagerank:"+journal._2.pr)))
                       println("Please enter the journal name or X to exit:")
                   }
                 jrnlDgrGrph.unpersist()
