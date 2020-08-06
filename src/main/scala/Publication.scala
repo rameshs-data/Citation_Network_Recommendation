@@ -53,7 +53,7 @@ object Publication {
           srchPblctn =>
             val timedResult = Utils.time {
               println("Retrieving influential publications for: " + srchPblctn._2.publicationName)
-              pblctnDgrGrph.collectNeighbors(EdgeDirection.Either).lookup((pblctnDgrGrph.vertices.filter {
+              pblctnDgrGrph.collectNeighbors(EdgeDirection.In).lookup((pblctnDgrGrph.vertices.filter {
                 publication => (publication._2.publicationName.equals(srchPblctn._2.publicationName))
               }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr).foreach(publication => println(publication._2)))
             }
@@ -65,7 +65,7 @@ object Publication {
           srchPblctn =>
             val timedResult = Utils.time {
               //            println("Retrieving influential journals for: " + srchPblctn._2.publicationName)
-              pblctnDgrGrph.collectNeighbors(EdgeDirection.Either).lookup((pblctnDgrGrph.vertices.filter {
+              pblctnDgrGrph.collectNeighbors(EdgeDirection.In).lookup((pblctnDgrGrph.vertices.filter {
                 publication => (publication._2.publicationName.equals(srchPblctn._2.publicationName))
               }.first)._1).map(publication => publication.sortWith(_._2.pr > _._2.pr))
             }

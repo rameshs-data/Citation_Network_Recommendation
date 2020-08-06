@@ -36,7 +36,7 @@ object Journal {
         searchJournal =>
           val timedResult = Utils.time {
             println("Retrieving influential journals for: " + searchJournal._2.journalName)
-            jrnlDgrGrph.collectNeighbors(EdgeDirection.Either).lookup((jrnlDgrGrph.vertices.filter {
+            jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
               journal => (journal._2.journalName.equals(searchJournal._2.journalName))
             }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr).foreach(journal => println(journal._2)))
           }
@@ -47,7 +47,7 @@ object Journal {
       journalSamples.foreach {
         searchJournal =>
           val timedResult = Utils.time {
-            jrnlDgrGrph.collectNeighbors(EdgeDirection.Either).lookup((jrnlDgrGrph.vertices.filter {
+            jrnlDgrGrph.collectNeighbors(EdgeDirection.In).lookup((jrnlDgrGrph.vertices.filter {
               journal => (journal._2.journalName.equals(searchJournal._2.journalName))
             }.first)._1).map(journal => journal.sortWith(_._2.pr > _._2.pr))
           }
