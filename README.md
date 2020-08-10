@@ -46,7 +46,7 @@ sdk install java 11.0.7.hs-adpt
 sdk install sbt
 ```
 
-### install scala for hello world program
+#### install scala for hello world program
 ```bash
 mkdir test && cd ./test
 sbt new scala/hello-world.g8
@@ -70,7 +70,53 @@ In linux use the below commands to clone the repository:
 git clone https://github.com/ramesh-suragam/CNA.git
 ```
 
-##  Building the code
+
+
+
+##  Running in interactive mode
+
+####  prerequisites
+Change the below tag from application-ichec.properties file to false for interactive mode
+```bash
+test.mode = false
+```
+
+#### execution of the code
+In linux:
+From the source directory containing build.sbt file run the following command to start the interactive mode and follow the on screen options:
+```bash
+sbt run
+```
+
+##  Running the tests
+
+####  prerequisites
+Change the test.mode tag from application-ichec.properties file to true for test mode:
+Use the test.entity.publication flag to test for publication, test.entity.journal flag to test for journal or set both flags to true to test both.
+Use test.publication.size to set the number of publications to test for, test.journal.size flag to set the number of journals to test for.
+Use test.print.results flag to see or skip test debug statements.
+```bash
+### Test Mode
+test.mode = true
+test.entity.publication = true
+test.entity.journal = true
+### Test Size
+test.publication.size=500
+test.journal.size = 500
+### Test Output
+test.print.results = false
+```
+Use the below flog from application-ichec.properties file to set the input data path:
+```bash
+### 
+### File Input details
+file.path = file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000
+sample.size = 0.33
+repartition.size=4
+```
+
+
+#### execution of the code
 
 In linux:
 Building the jar file for the project also requires us to all the dependencies inside it to create a fat jar. We use the sbt assembly plugin for this. Please follow the below steps to activate this plugin:
@@ -93,22 +139,13 @@ sbt assembly
 ```
 The new jar file gets created under: /target/scala-2.11/CNA-assembly-0.1.jar
 
-##  Deployment
-##  Running the tests
+Use the generated jar file to submit a spark-submit job on any Spark cluster. This code is built and executed on Spark Standalone cluster which are built using additional shell scripts which are subjective to the ICHEC cluster environment and there lies no dependencies of this code on those scripts. Below is a sample code to trigger spark-submit from command line. The arguments are dependent on the cluster being used.
+```bash
+spark-submit --driver-memory 140G --executor-memory 22G --total-executor-cores 385 --num-executors 77 --executor-cores 5 --conf spark.driver.maxResultSize=3g --class "CitationParser" --master "spark://10.54.$1:7077" /ichec/home/users/rameshs999/CNA/CNA9/CNA/target/scala-2.11/CNA-assembly-0.1.jar
+```
 
 ##  Authors
 Ramesh Suragam
-
-
-
-
-
-
-
-
-
-
-
 
 ## Contributing
 
