@@ -6,50 +6,122 @@ In this dissertation, we propose a system to analyse the document similarities b
 
 Another key aspect of our dissertation is the use of emerging big data analytics system, i.e. \enquote{Apache Spark} platform and \enquote{GraphX} framework for citation network analysis. The project was implemented in national supercomputing infrastructure (ICHEC) with the 47 GB raw data of publication citation network and references.
 
-
-
 ##  ON WINDOWS:
 
 ### Installation:
-Please download and install the IntelliJ IDEA version 11.0.7 from: https://www.jetbrains.com/idea/download/#section=windows
-Please download and install Scala version 2.11.7 from: https://www.scala-lang.org/download/
-Please download and install java version Java SE 8u261 from: https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html
-Please download and install Spark version 2.4.3 from: https://spark.apache.org/downloads.html 
-Spark installation steps can be found here: https://phoenixnap.com/kb/install-spark-on-windows-10
+
+* Please download and install GIT from: https://git-scm.com/download/win
+
+* Please download and install the IntelliJ IDEA version 11.0.7 from: https://www.jetbrains.com/idea/download/#section=windows
+
+* Please download and install Scala version 2.11.7 from: https://www.scala-lang.org/download/
+
+* Please download and install java version Java SE 8u261 from: https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html
+
+* Please download and install Spark version 2.4.3 from: https://spark.apache.org/downloads.html 
+
+* Spark installation steps can be found here: https://phoenixnap.com/kb/install-spark-on-windows-10
 
 ### Clone:
-### Running the Code:
-#### Interactive Mode:
-#### Test Mode:
 
+The code can be cloned from the GIT URL: https://github.com/ramesh-suragam/CNA.git
+
+### Setting the workspace:
+
+Please follow these sterps to setup the workspace on IntelliJ using: https://www.jetbrains.com/help/idea/set-up-a-git-repository.html#ignore-files
+
+### Running the Code:
+
+#### prerequisites:
+
+We can run the code either in interative mode or test mode:
+
+##### Interactive Mode:
+Change the below tag from application-local.properties file to false for interactive mode.
+Change the file.path and sample size to set them.
+```bash
+test.mode = false
+file.path = file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-*
+sample.size = 1
+```
+##### Test Mode:
+Change the test.mode tag from application-local.properties file to true for test mode:
+Use the test.entity.publication flag to test for publication, test.entity.journal flag to test for journal or set both flags to true to test both.
+Use test.publication.size to set the number of publications to test for, test.journal.size flag to set the number of journals to test for.
+Use test.print.results flag to see or skip test debug statements.
+
+```bash
+### Test Mode
+test.mode = true
+test.entity.publication = true
+test.entity.journal = true
+### Test Size
+test.publication.size=500
+test.journal.size = 500
+### Test Output
+test.print.results = false
+```
+Use the below flog from application-local.properties file to set the input data path:
+```bash
+### 
+### File Input details
+file.path = file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000
+sample.size = 1
+```
+The steps to run the code are same after setting the prerequisites as below:
+
+* From the Run menu, select Edit configurations
+
+* Click the + button and select sbt Task.
+
+* Name it Run the program.
+
+* In the Tasks field, type ~run. The ~ causes sbt to rebuild and rerun the project when you save changes to a file in the project.
+
+* Click OK.
+
+* On the Run menu. Click Run ‘Run the program’.
+
+* In the code, change 75 to 61 and look at the updated output in the console.
 
 ##  ON LINUX:
 
 ### Installation:
+
+Please download and install GIT from: https://git-scm.com/download/linux
+
 Please download and install Scala version 2.11.7 from: https://www.scala-lang.org/download/
+
 Please download and install java version Java SE 8u261 from: https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html
+
 Please download and install Spark version 2.4.3 from: https://spark.apache.org/downloads.html
+
 Please download and install SBT build tool using sdkman as below:
+
 #### install sdkman
 ```bash
 curl -s "https://get.sdkman.io" | bash
 ```
+
 #### source sdkman
 ```bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 ```
+
 #### install java and sbt
 ```bash
 sdk list java
 sdk install java 11.0.7.hs-adpt
 sdk install sbt
 ```
+
 #### install scala for hello world program
 ```bash
 mkdir test && cd ./test
 sbt new scala/hello-world.g8
 # when prompted, give name hello-world
 ```
+
 #### run hello-world interactively
 ```bash
 cd ./hello-world
@@ -100,9 +172,8 @@ Use the below flog from application-ichec.properties file to set the input data 
 ```bash
 ### 
 ### File Input details
-file.path = file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000
-sample.size = 0.33
-repartition.size=4
+file.path = file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-*
+sample.size = 1
 ```
 #### execution of the code
 Building the jar file for the project also requires us to all the dependencies inside it to create a fat jar. We use the sbt assembly plugin for this. Please follow the below steps to activate this plugin:
