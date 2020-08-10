@@ -63,7 +63,6 @@ test.print.results = false
 ```
 Use the below flog from application-local.properties file to set the input data path:
 ```bash
-### 
 ### File Input details
 file.path = file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000
 sample.size = 1
@@ -82,7 +81,7 @@ The steps to run the code are same after setting the prerequisites as below:
 
 * On the Run menu. Click Run ‘Run the program’.
 
-* In the code, change 75 to 61 and look at the updated output in the console.
+Alternatively, you can extract the cna-2.11.11.jar file from the target folder and run it onto a spark cluster.
 
 ##  ON LINUX:
 
@@ -170,7 +169,6 @@ test.print.results = false
 ```
 Use the below flog from application-ichec.properties file to set the input data path:
 ```bash
-### 
 ### File Input details
 file.path = file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-*
 sample.size = 1
