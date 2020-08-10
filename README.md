@@ -65,12 +65,33 @@ exit
 
 The code can be cloned from the GIT URL: https://github.com/ramesh-suragam/CNA.git
 
-In linux one can use the below commands to clone the repository:
+In linux use the below commands to clone the repository:
 ```bash
 git clone https://github.com/ramesh-suragam/CNA.git
 ```
 
 ##  Building the code
+
+In linux:
+Building the jar file for the project also requires us to all the dependencies inside it to create a fat jar. We use the sbt assembly plugin for this. Please follow the below steps to activate this plugin:
+
+Uncomment the below assembly plugin lines from build.sbt:
+```bash
+assemblyMergeStrategy in assembly := {
+ case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+ case x => MergeStrategy.first
+}
+```
+Create a new file plugins.sbt under project folder:
+```bash
+touch project/plugins.sbt
+echo "addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.9")" > project/plugins.sbt
+```
+To build the jar file use the below:
+```bash
+sbt assembly
+```
+The new jar file gets created under: /target/scala-2.11/CNA-assembly-0.1.jar
 
 ##  Deployment
 ##  Running the tests
