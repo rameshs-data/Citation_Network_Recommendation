@@ -1,4 +1,4 @@
-# Citation Network Analysis using GraphX
+#  Citation Network Analysis using GraphX
 
 The popularity of the scientific publications keeps on increasing day by day and the number of publications is also immensely increasing. Thus, it becomes more challenging for any researcher to search for a topic, review the literature, follow research trends in that field. The use of online search engines help to a certain extent but the number of results is vast. In the past, many solutions are proposed to analyse the document similarities using Natural Language Processing(NLP) which makes use of pattern matching but these results are not so accurate.
 
@@ -6,53 +6,50 @@ In this dissertation, we propose a system to analyse the document similarities b
 
 Another key aspect of our dissertation is the use of emerging big data analytics system, i.e. \enquote{Apache Spark} platform and \enquote{GraphX} framework for citation network analysis. The project was implemented in national supercomputing infrastructure (ICHEC) with the 47 GB raw data of publication citation network and references.
 
-## Installation
 
-### For Windows:
 
+##  ON WINDOWS:
+
+### Installation:
 Please download and install the IntelliJ IDEA version 11.0.7 from: https://www.jetbrains.com/idea/download/#section=windows
-
 Please download and install Scala version 2.11.7 from: https://www.scala-lang.org/download/
-
 Please download and install java version Java SE 8u261 from: https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html
-
 Please download and install Spark version 2.4.3 from: https://spark.apache.org/downloads.html 
 Spark installation steps can be found here: https://phoenixnap.com/kb/install-spark-on-windows-10
 
-### For Linux:
+### Clone:
+### Running the Code:
+#### Interactive Mode:
+#### Test Mode:
 
+
+##  ON LINUX:
+
+### Installation:
 Please download and install Scala version 2.11.7 from: https://www.scala-lang.org/download/
-
 Please download and install java version Java SE 8u261 from: https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html
-
 Please download and install Spark version 2.4.3 from: https://spark.apache.org/downloads.html
-
 Please download and install SBT build tool using sdkman as below:
-
 #### install sdkman
 ```bash
 curl -s "https://get.sdkman.io" | bash
 ```
-
 #### source sdkman
 ```bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 ```
-
 #### install java and sbt
 ```bash
 sdk list java
 sdk install java 11.0.7.hs-adpt
 sdk install sbt
 ```
-
 #### install scala for hello world program
 ```bash
 mkdir test && cd ./test
 sbt new scala/hello-world.g8
 # when prompted, give name hello-world
 ```
-
 #### run hello-world interactively
 ```bash
 cd ./hello-world
@@ -61,8 +58,8 @@ sbt
 ~run
 exit
 ```
-##  Clone
 
+### Clone
 The code can be cloned from the GIT URL: https://github.com/ramesh-suragam/CNA.git
 
 In linux use the below commands to clone the repository:
@@ -70,26 +67,19 @@ In linux use the below commands to clone the repository:
 git clone https://github.com/ramesh-suragam/CNA.git
 ```
 
-
-
-
-##  Running in interactive mode
-
-####  prerequisites
+#### Running in Interactive Mode:
+#####  prerequisites
 Change the below tag from application-ichec.properties file to false for interactive mode
 ```bash
 test.mode = false
 ```
-
 #### execution of the code
-In linux:
 From the source directory containing build.sbt file run the following command to start the interactive mode and follow the on screen options:
 ```bash
 sbt run
 ```
 
-##  Running the tests
-
+### Running in Test Mode:
 ####  prerequisites
 Change the test.mode tag from application-ichec.properties file to true for test mode:
 Use the test.entity.publication flag to test for publication, test.entity.journal flag to test for journal or set both flags to true to test both.
@@ -114,11 +104,7 @@ file.path = file:///ichec/home/users/rameshs999/PubCiteNetAnalysis/s2-corpus-000
 sample.size = 0.33
 repartition.size=4
 ```
-
-
 #### execution of the code
-
-In linux:
 Building the jar file for the project also requires us to all the dependencies inside it to create a fat jar. We use the sbt assembly plugin for this. Please follow the below steps to activate this plugin:
 
 Uncomment the below assembly plugin lines from build.sbt:
