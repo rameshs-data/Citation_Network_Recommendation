@@ -1,5 +1,4 @@
-# CNA
-Citation Network Analysis using GraphX
+# Citation Network Analysis using GraphX
 
 The popularity of the scientific publications keeps on increasing day by day and the number of publications is also immensely increasing. Thus, it becomes more challenging for any researcher to search for a topic, review the literature, follow research trends in that field. The use of online search engines help to a certain extent but the number of results is vast. In the past, many solutions are proposed to analyse the document similarities using Natural Language Processing(NLP) which makes use of pattern matching but these results are not so accurate.
 
@@ -17,18 +16,25 @@ Please download and install Scala version 2.11.7 from: https://www.scala-lang.or
 
 Please download and install java version Java SE 8u261 from: https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html
 
+Please download and install Spark version 2.4.3 from: https://spark.apache.org/downloads.html 
+Spark installation steps can be found here: https://phoenixnap.com/kb/install-spark-on-windows-10
+
 ### For Linux:
 
 Please download and install Scala version 2.11.7 from: https://www.scala-lang.org/download/
 
 Please download and install java version Java SE 8u261 from: https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html
 
-install sdkman
+Please download and install Spark version 2.4.3 from: https://spark.apache.org/downloads.html
+
+Please download and install SBT build tool using sdkman as below:
+
+#### install sdkman
 ```bash
 curl -s "https://get.sdkman.io" | bash
 ```
 
-source sdkman
+#### source sdkman
 ```bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 ```
@@ -55,6 +61,24 @@ sbt
 ~run
 exit
 ```
+##  Clone
+
+The code can be cloned from the GIT URL: https://github.com/ramesh-suragam/CNA.git
+
+In linux one can use the below commands to clone the repository:
+```bash
+git clone https://github.com/ramesh-suragam/CNA.git
+```
+
+##  Building the code
+
+##  Deployment
+##  Running the tests
+
+##  Authors
+Ramesh Suragam
+
+
 
 
 
